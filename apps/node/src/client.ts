@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AlignPlan } from "@agentory/shared";
-import { controlPlaneBaseUrl } from "@agentory/shared";
+import type { AlignPlan } from "@agentoryhq/shared";
+import { controlPlaneBaseUrl } from "@agentoryhq/shared";
 import { applyAlignPatch } from "./align.js";
 import { discoverAssetIndex } from "./asset-index.js";
 import { discoverAgentsWithHealth } from "./discover.js";
 import { captureTranscriptSnapshot, transcriptFileForSourceKey } from "./transcript.js";
-import type { TranscriptSnapshot } from "@agentory/shared";
+import type { TranscriptSnapshot } from "@agentoryhq/shared";
 
 export type NodeState = {
   workspaceId?: string;

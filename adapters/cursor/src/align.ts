@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { ApplyAlignOpts, ApplyAlignResult } from "@agentory/runtime-contract";
+import type { ApplyAlignOpts, ApplyAlignResult } from "@agentoryhq/runtime-contract";
 
 /**
  * Write confirmed align patch to Cursor project files.

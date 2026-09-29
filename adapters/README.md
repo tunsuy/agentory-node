@@ -7,13 +7,13 @@
 
 | 路径 | 包名 | 说明 |
 |------|------|------|
-| `packages/runtime-contract` | `@agentory/runtime-contract` | manifest / capability / `RuntimeAdapter` 接口（`adapter_api = 1`） |
-| `adapters/cursor` | `@agentory/adapter-cursor` | 参考实现：detect · discoverConfig · applyAlign · indexSessions · readTranscript |
-| `adapters/claude-code` | `@agentory/adapter-claude-code` | detect · discoverConfig · applyAlign（项目 `.mcp.json` + skills 清单） |
+| `packages/runtime-contract` | `@agentoryhq/runtime-contract` | manifest / capability / `RuntimeAdapter` 接口（`adapter_api = 1`） |
+| `adapters/cursor` | `@agentoryhq/adapter-cursor` | 参考实现：detect · discoverConfig · applyAlign · indexSessions · readTranscript |
+| `adapters/claude-code` | `@agentoryhq/adapter-claude-code` | detect · discoverConfig · applyAlign（项目 `.mcp.json` + skills 清单） |
 
 ## 新增一个 adapter（仓内 PR）
 
-1. 复制 `adapters/claude-code` 为 `adapters/<runtime-id>/`，改 `package.json` 名称为 `@agentory/adapter-<id>`。
+1. 复制 `adapters/claude-code` 为 `adapters/<runtime-id>/`，改 `package.json` 名称为 `@agentoryhq/adapter-<id>`。
 2. 实现 `RuntimeAdapter`：至少 `detect`；按能力声明实现 `discoverConfig` / `applyAlign` / `indexSessions` / `readTranscript`。
 3. 在 `apps/node/src/registry.ts` 的 `builtinAdapters` 注册。
 4. 根 `package.json` workspaces 已含 `adapters/*`；把新包加入 root `build` / `pack:node-cli` 链（与 cursor / claude-code 同级）。

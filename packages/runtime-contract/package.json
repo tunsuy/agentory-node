@@ -1,5 +1,5 @@
 {
-  "name": "@agentory/runtime-contract",
+  "name": "@agentoryhq/runtime-contract",
   "version": "0.1.1",
   "description": "Agentory RuntimeAdapter contract (manifest + capabilities)",
   "license": "Apache-2.0",
@@ -17,7 +17,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@agentory/shared": "*"
+    "@agentoryhq/shared": "*"
   },
   "repository": {
     "type": "git",

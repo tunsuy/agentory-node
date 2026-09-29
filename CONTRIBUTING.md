@@ -17,7 +17,7 @@ Thanks for helping grow Agent runtime coverage.
 
 ## Add a runtime (checklist)
 
-1. Copy `adapters/claude-code` → `adapters/<id>/`, rename the package to `@agentory/adapter-<id>`.
+1. Copy `adapters/claude-code` → `adapters/<id>/`, rename the package to `@agentoryhq/adapter-<id>`.
 2. Implement `RuntimeAdapter` in `packages/runtime-contract` shape: at least `detect`; declare `capabilities` honestly.
 3. Register in `apps/node/src/registry.ts` `builtinAdapters`.
 4. Add fixture tests (temp dir + assert discover / align).

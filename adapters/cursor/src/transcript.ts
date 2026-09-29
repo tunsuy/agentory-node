@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { TranscriptSnapshot } from "@agentory/shared";
+import type { TranscriptSnapshot } from "@agentoryhq/shared";
 
 /**
  * Node-side transcript capture for on-demand review (model B · S-tier).

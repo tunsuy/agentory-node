@@ -1,5 +1,5 @@
-import type { LiveMcpBinding, McpHealthStatus } from "@agentory/shared";
-import { worstMcpStatus } from "@agentory/shared";
+import type { LiveMcpBinding, McpHealthStatus } from "@agentoryhq/shared";
+import { worstMcpStatus } from "@agentoryhq/shared";
 
 export type ProbeInput = {
   name: string;

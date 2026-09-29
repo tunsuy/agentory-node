@@ -4,7 +4,7 @@ import type {
   MemoryIndexReportItem,
   SessionIndexReportItem,
   TranscriptSnapshot,
-} from "@agentory/shared";
+} from "@agentoryhq/shared";
 
 /** Wire protocol version between Host and RuntimeAdapter implementations. */
 export const ADAPTER_API_VERSION = 1 as const;

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
-import type { AdapterContext } from "@agentory/runtime-contract";
-import type { DiscoveredAgent } from "@agentory/shared";
+import type { AdapterContext } from "@agentoryhq/runtime-contract";
+import type { DiscoveredAgent } from "@agentoryhq/shared";
 import { probeAll } from "./probe.js";
 import { builtinAdapters } from "./registry.js";
 

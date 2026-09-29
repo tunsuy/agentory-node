@@ -7,7 +7,7 @@ export {
   captureTranscriptSnapshot,
   maskSecrets,
   transcriptFileForSourceKey,
-} from "@agentory/adapter-cursor";
+} from "@agentoryhq/adapter-cursor";
 
 export type TranscriptFetchOpts = {
   homeDir?: string;

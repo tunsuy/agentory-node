@@ -1,5 +1,5 @@
-import type { RuntimeAdapter } from "@agentory/runtime-contract";
-import { ADAPTER_API_VERSION } from "@agentory/runtime-contract";
+import type { RuntimeAdapter } from "@agentoryhq/runtime-contract";
+import { ADAPTER_API_VERSION } from "@agentoryhq/runtime-contract";
 import { applyAlignPatch } from "./align.js";
 import { detectClaudeCode, discoverClaudeCodeConfig } from "./discover.js";
 
