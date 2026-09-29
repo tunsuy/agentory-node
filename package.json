@@ -1,0 +1,27 @@
+{
+  "name": "agentory-node-workspace",
+  "private": true,
+  "version": "0.1.1",
+  "description": "Agentory Node \u2014 open-source Host + RuntimeAdapter contract + adapters",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*",
+    "adapters/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w @agentory/shared && npm run build -w @agentory/runtime-contract && npm run build -w @agentory/adapter-cursor && npm run build -w @agentory/adapter-claude-code && npm run build -w @agentory/node",
+    "test": "npm run build && NODE_ENV=test node --test apps/node/dist/discover.test.js apps/node/dist/align.test.js apps/node/dist/probe.test.js adapters/claude-code/dist/index.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tunsuy/agentory-node.git"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "@agentory/node",
+  "version": "0.1.1",
+  "description": "Agentory Node CLI \u2014 register, discover, align, daemon",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "agentory-node": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@agentory/adapter-claude-code": "*",
+    "@agentory/adapter-cursor": "*",
+    "@agentory/runtime-contract": "*",
+    "@agentory/shared": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tunsuy/agentory-node.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

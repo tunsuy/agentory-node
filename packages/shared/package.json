@@ -1,0 +1,30 @@
+{
+  "name": "@agentory/shared",
+  "version": "0.1.1",
+  "description": "Agentory wire/DTO types for node adapters and control-plane clients",
+  "license": "Apache-2.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tunsuy/agentory-node.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
