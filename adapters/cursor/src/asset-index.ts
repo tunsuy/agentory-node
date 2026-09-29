@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { AdapterContext, AssetIndexResult } from "@agentory/runtime-contract";
-import type { MemoryIndexReportItem, SessionIndexReportItem } from "@agentory/shared";
+import type { AdapterContext, AssetIndexResult } from "@agentoryhq/runtime-contract";
+import type { MemoryIndexReportItem, SessionIndexReportItem } from "@agentoryhq/shared";
 
 const TITLE_MAX = 80;
 

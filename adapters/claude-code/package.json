@@ -1,5 +1,5 @@
 {
-  "name": "@agentory/adapter-claude-code",
+  "name": "@agentoryhq/adapter-claude-code",
   "version": "0.1.1",
   "description": "Agentory RuntimeAdapter for Claude Code",
   "license": "Apache-2.0",
@@ -17,8 +17,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@agentory/runtime-contract": "*",
-    "@agentory/shared": "*"
+    "@agentoryhq/runtime-contract": "*",
+    "@agentoryhq/shared": "*"
   },
   "repository": {
     "type": "git",

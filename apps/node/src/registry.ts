@@ -1,6 +1,6 @@
-import type { RuntimeAdapter } from "@agentory/runtime-contract";
-import { claudeCodeAdapter } from "@agentory/adapter-claude-code";
-import { cursorAdapter } from "@agentory/adapter-cursor";
+import type { RuntimeAdapter } from "@agentoryhq/runtime-contract";
+import { claudeCodeAdapter } from "@agentoryhq/adapter-claude-code";
+import { cursorAdapter } from "@agentoryhq/adapter-cursor";
 
 /** Built-in adapters shipped with agentory-node (仓内 adapters/*). */
 export const builtinAdapters: readonly RuntimeAdapter[] = [cursorAdapter, claudeCodeAdapter];

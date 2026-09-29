@@ -1,5 +1,5 @@
 {
-  "name": "@agentory/adapter-cursor",
+  "name": "@agentoryhq/adapter-cursor",
   "version": "0.1.1",
   "description": "Agentory RuntimeAdapter for Cursor",
   "license": "Apache-2.0",
@@ -17,8 +17,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@agentory/runtime-contract": "*",
-    "@agentory/shared": "*"
+    "@agentoryhq/runtime-contract": "*",
+    "@agentoryhq/shared": "*"
   },
   "repository": {
     "type": "git",

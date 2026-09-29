@@ -2,7 +2,7 @@
 
 ## Contract
 
-Implement `RuntimeAdapter` from `@agentory/runtime-contract`:
+Implement `RuntimeAdapter` from `@agentoryhq/runtime-contract`:
 
 | Capability | Meaning |
 |------------|---------|
@@ -18,7 +18,7 @@ Declare only what you implement in `manifest.capabilities`. Bump `adapter_api` o
 
 ```
 adapters/<runtime-id>/
-  package.json          # @agentory/adapter-<runtime-id>
+  package.json          # @agentoryhq/adapter-<runtime-id>
   src/index.ts          # export const xxxAdapter: RuntimeAdapter
   src/discover.ts       # optional split
   src/align.ts          # optional split

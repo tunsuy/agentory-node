@@ -13,7 +13,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build -w @agentory/shared && npm run build -w @agentory/runtime-contract && npm run build -w @agentory/adapter-cursor && npm run build -w @agentory/adapter-claude-code && npm run build -w @agentory/node",
+    "build": "npm run build -w @agentoryhq/shared && npm run build -w @agentoryhq/runtime-contract && npm run build -w @agentoryhq/adapter-cursor && npm run build -w @agentoryhq/adapter-claude-code && npm run build -w @agentoryhq/node",
     "test": "npm run build && NODE_ENV=test node --test apps/node/dist/discover.test.js apps/node/dist/align.test.js apps/node/dist/probe.test.js adapters/claude-code/dist/index.test.js"
   },
   "devDependencies": {

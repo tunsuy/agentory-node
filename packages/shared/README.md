@@ -1,4 +1,4 @@
-# @agentory/shared
+# @agentoryhq/shared
 
 Wire / DTO types shared by **agentory-node** adapters and (separately) the private Agentory control plane.
 
