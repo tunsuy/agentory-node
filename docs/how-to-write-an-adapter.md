@@ -1,5 +1,7 @@
 # How to write an adapter
 
+See also [CONTRIBUTING.md](../CONTRIBUTING.md) and [SECURITY.md](../SECURITY.md).
+
 ## Contract
 
 Implement `RuntimeAdapter` from `@agentoryhq/runtime-contract`:

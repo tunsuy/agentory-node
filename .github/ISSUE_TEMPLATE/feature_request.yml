@@ -1,0 +1,47 @@
+name: Feature / adapter request
+description: Propose a Host improvement or a new in-tree adapter
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Phase 1 accepts **in-tree** `adapters/*` PRs only (no dynamic third-party loader).
+        Control plane / Console changes are out of scope for this repository.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Request type
+      options:
+        - New adapter (runtime)
+        - Improve existing adapter
+        - Host / CLI behavior
+        - Docs / DX
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime id (if adapter)
+      description: e.g. codex, gemini-cli
+      placeholder: codex
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Capabilities needed (detect / discoverConfig / applyAlign / …)
+    validations:
+      required: true
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a PR for this
+          required: false
