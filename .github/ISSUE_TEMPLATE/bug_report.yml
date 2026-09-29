@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a bug in the Host CLI or an in-tree adapter
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Redact tokens and secrets.** For security issues use [SECURITY.md](https://github.com/tunsuy/agentory-node/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: agentory-node version
+      description: Output of `agentory-node version` or `npx -y @agentoryhq/node version`
+      placeholder: "node 0.1.1"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node.js version
+      placeholder: "macOS 15 / Node 22"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Host / CLI / daemon
+        - adapter-cursor
+        - adapter-claude-code
+        - runtime-contract / shared
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps; no production secrets
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Paste relevant CLI output (masked)
+      render: text
