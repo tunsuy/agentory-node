@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { AdapterContext } from "@agentory/runtime-contract";
-import type { DiscoveredAgent, LiveMcpBinding } from "@agentory/shared";
+import type { AdapterContext } from "@agentoryhq/runtime-contract";
+import type { DiscoveredAgent, LiveMcpBinding } from "@agentoryhq/shared";
 
 function readJsonFile(file: string): unknown | undefined {
   try {

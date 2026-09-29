@@ -10,15 +10,15 @@ The Agentory **control plane** (API, Console, seats, billing) is **not** in this
 | `apps/node` — Host (`agentory-node` CLI) | Control plane API |
 | `packages/runtime-contract` | Console UI |
 | `adapters/*` (Cursor, Claude Code, …) | Seats / quotas / audit enforcement |
-| `@agentory/shared` wire/DTO types | Hosted SaaS |
+| `@agentoryhq/shared` wire/DTO types | Hosted SaaS |
 
 Architecture summary (ADR-004): open-source Host + RuntimeAdapter contract + in-tree `adapters/*` PRs; control plane stays product-side. No third-party dynamic adapter loader in phase 1.
 
 ## Install
 
 ```bash
-# After npm publish of @agentory/node:
-npx -y @agentory/node version
+# After npm publish (@agentoryhq — unscoped name "agentory" is taken on npm):
+npx -y @agentoryhq/node version
 
 # From this repo (development):
 npm install

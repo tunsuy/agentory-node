@@ -1,5 +1,5 @@
 {
-  "name": "@agentory/node",
+  "name": "@agentoryhq/node",
   "version": "0.1.1",
   "description": "Agentory Node CLI \u2014 register, discover, align, daemon",
   "license": "Apache-2.0",
@@ -16,10 +16,10 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "@agentory/adapter-claude-code": "*",
-    "@agentory/adapter-cursor": "*",
-    "@agentory/runtime-contract": "*",
-    "@agentory/shared": "*"
+    "@agentoryhq/adapter-claude-code": "*",
+    "@agentoryhq/adapter-cursor": "*",
+    "@agentoryhq/runtime-contract": "*",
+    "@agentoryhq/shared": "*"
   },
   "repository": {
     "type": "git",

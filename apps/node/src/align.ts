@@ -1,6 +1,6 @@
-import type { AlignPatch } from "@agentory/shared";
-import { applyAlignPatch as cursorApplyAlign } from "@agentory/adapter-cursor";
-import { applyAlignPatch as claudeApplyAlign } from "@agentory/adapter-claude-code";
+import type { AlignPatch } from "@agentoryhq/shared";
+import { applyAlignPatch as cursorApplyAlign } from "@agentoryhq/adapter-cursor";
+import { applyAlignPatch as claudeApplyAlign } from "@agentoryhq/adapter-claude-code";
 import { adapterForRuntime } from "./registry.js";
 
 export type ApplyAlignOpts = {

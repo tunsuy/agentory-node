@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { controlPlaneBaseUrl } from "@agentory/shared";
+import { controlPlaneBaseUrl } from "@agentoryhq/shared";
 import { applyPendingAligns, fulfillPendingTranscripts, heartbeat, loadState, reportAssetIndex, reportDiscovery } from "./client.js";
 import { discoverAssetIndex } from "./asset-index.js";
 

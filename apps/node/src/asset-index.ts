@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { MemoryIndexReportItem, SessionIndexReportItem } from "@agentory/shared";
+import type { MemoryIndexReportItem, SessionIndexReportItem } from "@agentoryhq/shared";
 import { builtinAdapters } from "./registry.js";
 
 export type AssetIndexDiscoverOpts = {
@@ -75,4 +75,4 @@ export function discoverAssetIndex(opts: AssetIndexDiscoverOpts = {}): {
 export {
   buildCursorProjectPathMap,
   titleFromTranscriptJsonl,
-} from "@agentory/adapter-cursor";
+} from "@agentoryhq/adapter-cursor";

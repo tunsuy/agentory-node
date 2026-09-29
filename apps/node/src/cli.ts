@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { PKG_VERSION, controlPlaneBaseUrl, jsonHealth } from "@agentory/shared";
+import { PKG_VERSION, controlPlaneBaseUrl, jsonHealth } from "@agentoryhq/shared";
 import { applyPendingAligns, fulfillPendingTranscripts, heartbeat, registerNode, reportAssetIndex, reportDiscovery } from "./client.js";
 import { discoverAssetIndex } from "./asset-index.js";
 import { discoverAgents } from "./discover.js";
