@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
   TRANSCRIPT_MESSAGE_MAX_CHARS,
   TRANSCRIPT_WINDOW_MESSAGES,
+  captureTranscriptForSourceKey,
   captureTranscriptSnapshot,
   maskSecrets,
   transcriptFileForSourceKey,
@@ -110,6 +111,50 @@ test("captureTranscriptSnapshot empty / missing files (AC-1 空态)", () => {
 
     const missing = captureTranscriptSnapshot(path.join(home, "nope.jsonl"));
     assert.equal(missing, undefined);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("captureTranscriptForSourceKey routes cursor + claude keys to their adapters; unknown → undefined (AC-5)", () => {
+  const home = makeHome();
+  try {
+    // cursor session jsonl under ~/.cursor/projects/
+    const cursorFile = writeJsonl(home, "p/agent-transcripts/id1/id1.jsonl", [
+      { role: "user", message: "cursor question", ts: "2026-10-30T10:00:00.000Z" },
+      { role: "assistant", message: { content: [{ type: "text", text: "cursor answer" }] }, ts: "2026-10-30T10:00:05.000Z" },
+    ]);
+    // claude session jsonl under ~/.claude/projects/
+    const claudeFile = path.join(home, ".claude", "projects", "Users-demo-work-app", "11111111-2222-3333-4444-555555555555.jsonl");
+    fs.mkdirSync(path.dirname(claudeFile), { recursive: true });
+    fs.writeFileSync(
+      claudeFile,
+      [
+        JSON.stringify({ type: "user", origin: { kind: "human" }, message: { role: "user", content: "claude question" }, timestamp: "2026-10-30T10:00:00.000Z" }),
+        JSON.stringify({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "claude answer" }] }, timestamp: "2026-10-30T10:00:05.000Z" }),
+      ].join("\n"),
+    );
+
+    // cursor key routes to the cursor adapter
+    const cursorSnap = captureTranscriptForSourceKey(`cursor-transcript:${cursorFile}`, home);
+    assert.ok(cursorSnap);
+    assert.equal(cursorSnap.sourceKey, `cursor-transcript:${cursorFile}`);
+    assert.equal(cursorSnap.messages.length, 2);
+    assert.equal(cursorSnap.messages[0].text, "cursor question");
+
+    // claude key routes to the claude-code adapter
+    const claudeSnap = captureTranscriptForSourceKey(`claude-session:${claudeFile}`, home);
+    assert.ok(claudeSnap);
+    assert.equal(claudeSnap.sourceKey, `claude-session:${claudeFile}`);
+    assert.equal(claudeSnap.messages.length, 2);
+    assert.equal(claudeSnap.messages[0].text, "claude question");
+
+    // unknown prefix / missing file → undefined (miss, 既有语义)
+    assert.equal(captureTranscriptForSourceKey("other-runtime:whatever", home), undefined);
+    assert.equal(
+      captureTranscriptForSourceKey(`claude-session:${path.join(home, ".claude", "projects", "slug", "gone.jsonl")}`, home),
+      undefined,
+    );
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -91,4 +92,39 @@ test("fixture overrides filesystem", () => {
   const agents = discoverAgents({ fixturePath: fixture, homeDir: root, cwd: root });
   assert.equal(agents.length, 1);
   assert.equal(agents[0]?.mcp.length, 0);
+});
+
+// rules-desired-config 切片Ⅱ:规则发现只报名字 + sha256(文件字节),正文不出节点。
+test("discover cursor rules:名字+hash 上报 · cwd 优先 · 非 .mdc 忽略 · claude 恒空", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agy-disc-rules-"));
+  const home = path.join(root, "home");
+  const cwd = path.join(root, "proj");
+  fs.mkdirSync(path.join(cwd, ".cursor", "rules"), { recursive: true });
+  fs.mkdirSync(path.join(home, ".cursor", "rules"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, ".cursor", "rules", "code-style.mdc"), "cwd body");
+  fs.writeFileSync(path.join(home, ".cursor", "rules", "code-style.mdc"), "home body"); // 同名:cwd 优先
+  fs.writeFileSync(path.join(home, ".cursor", "rules", "global.mdc"), "g");
+  fs.writeFileSync(path.join(cwd, ".cursor", "rules", "notes.md"), "ignored"); // 非 .mdc 不进规则维
+
+  const agents = discoverAgents({ homeDir: home, cwd });
+  const cursor = agents.find((a) => a.runtime === "cursor")!;
+  assert.ok(cursor);
+  const byName = new Map((cursor.rules ?? []).map((r) => [r.name, r]));
+  assert.equal(byName.size, 2);
+  assert.equal(
+    byName.get("code-style")?.contentHash,
+    createHash("sha256").update("cwd body", "utf8").digest("hex"),
+  );
+  assert.equal(
+    byName.get("global")?.contentHash,
+    createHash("sha256").update("g", "utf8").digest("hex"),
+  );
+  assert.equal(byName.has("notes"), false);
+
+  // claude-code 诚实边界:恒报空 rules
+  fs.mkdirSync(path.join(cwd, ".claude"), { recursive: true });
+  const agents2 = discoverAgents({ homeDir: home, cwd });
+  const claude = agents2.find((a) => a.runtime === "claude-code")!;
+  assert.ok(claude);
+  assert.deepEqual(claude.rules, []);
 });

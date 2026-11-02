@@ -10,6 +10,8 @@ type McpServerEntry =
  * Write confirmed align patch to Claude Code project files.
  * - MCP → project root `.mcp.json`
  * - Skills name list → `.claude/agentory-skills.json` (tracking; does not install skill bodies)
+ * - patch.rules 显式忽略（rules-desired-config Q1 裁决：一期规则载体只有 cursor，
+ *   claude-code 诚实提示暂不支持；API 侧对 claude-code 恒下发空 rules patch，双保险）
  * Snapshots prior `.mcp.json` under `.claude/agentory-snapshots/`.
  */
 export function applyAlignPatch(opts: ApplyAlignOpts): ApplyAlignResult {

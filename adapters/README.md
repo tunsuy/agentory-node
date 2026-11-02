@@ -9,7 +9,7 @@
 |------|------|------|
 | `packages/runtime-contract` | `@agentoryhq/runtime-contract` | manifest / capability / `RuntimeAdapter` 接口（`adapter_api = 1`） |
 | `adapters/cursor` | `@agentoryhq/adapter-cursor` | 参考实现：detect · discoverConfig · applyAlign · indexSessions · readTranscript |
-| `adapters/claude-code` | `@agentoryhq/adapter-claude-code` | detect · discoverConfig · applyAlign（项目 `.mcp.json` + skills 清单） |
+| `adapters/claude-code` | `@agentoryhq/adapter-claude-code` | detect · discoverConfig · applyAlign · indexSessions · readTranscript（项目 `.mcp.json` + skills 清单 + `~/.claude/projects` 会话/记忆索引） |
 
 ## 新增一个 adapter（仓内 PR）
 

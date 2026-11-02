@@ -84,5 +84,8 @@ export function discoverClaudeCodeConfig(ctx: AdapterContext): DiscoveredAgent |
     displayName: `Claude Code · ${path.basename(ctx.cwd) || "workspace"}`,
     mcp,
     skills: [...skillNames],
+    // 诚实边界（rules-desired-config Q1 裁决）：一期规则载体只有 cursor（.cursor/rules/*.mdc），
+    // claude-code 恒报空——CLAUDE.md 类载体联动属二期，另开 Brief。
+    rules: [],
   };
 }
