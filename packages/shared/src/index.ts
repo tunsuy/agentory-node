@@ -48,29 +48,41 @@ export type Membership = {
   role: Role;
 };
 
+/** 期望态规则条目：name = 规则名（节点侧落 .cursor/rules/<name>.mdc 文件名语义），body = markdown 正文整段透传（rules-desired-config Q3 裁决：不解构 frontmatter）。 */
+export type DesiredRule = { name: string; body: string };
+
+/** 规则发现上报条目：只报名字与内容 hash，正文不上传（会话流索引只读口径不变）。hash 契约 = sha256(body UTF-8 字节) hex。 */
+export type LiveRuleBinding = { name: string; contentHash?: string };
+
 export type DesiredCatalog = {
   workspaceId: string;
   mcp: { name: string; command?: string }[];
   skills: string[];
+  rules: DesiredRule[];
   updatedAt: string;
 };
 
 export type AlignDiffAction = "add" | "update" | "keep" | "keep_live";
 
 export type AlignDiffItem = {
-  kind: "mcp" | "skill";
+  kind: "mcp" | "skill" | "rule";
   name: string;
   action: AlignDiffAction;
   /** live 与 desired 冲突；写入时以期望态为准 */
   conflict: boolean;
   liveCommand?: string;
   desiredCommand?: string;
+  /** 规则维 hash 对照（kind="rule"）：live 上报的内容 hash / desired 正文 hash */
+  liveHash?: string;
+  desiredHash?: string;
   note?: string;
 };
 
 export type AlignPatch = {
   mcp: { name: string; command?: string }[];
   skills: string[];
+  /** 可选 = node↔api 版本偏差容忍：老节点收到无 rules 的 patch 按老形状执行 */
+  rules?: DesiredRule[];
 };
 
 export type AlignPlanStatus =
@@ -191,6 +203,8 @@ export type DiscoveredAgent = {
   displayName: string;
   mcp: LiveMcpBinding[];
   skills: string[];
+  /** 可选 = 老节点上报无 rules 字段零破坏；API 侧归一为 [] */
+  rules?: LiveRuleBinding[];
 };
 
 export type AgentRecord = DiscoveredAgent & {
@@ -211,28 +225,33 @@ export type NodeRecord = {
   revokedAt: string | null;
 };
 
-/** Read-only Cursor session metadata (no message body). */
+/** Read-only session metadata (no message body), any indexed runtime. */
 export type SessionIndexReportItem = {
   sourceKey: string;
   displayName: string;
   projectPath?: string;
   updatedAt: string;
+  /** runtime the item was discovered by; absent = legacy node payload → API defaults "cursor" */
+  runtime?: RuntimeKind;
 };
 
-/** Read-only memory/rules metadata (no file body). */
+/** Read-only memory/rules metadata (no file body), any indexed runtime. */
 export type MemoryIndexReportItem = {
   sourceKey: string;
   kind: "memory" | "rules";
   pathLabel: string;
   projectPath?: string;
   updatedAt: string;
+  /** runtime the item was discovered by; absent = legacy node payload → API defaults "cursor" */
+  runtime?: RuntimeKind;
 };
 
 export type SessionIndexEntry = SessionIndexReportItem & {
   id: string;
   workspaceId: string;
   nodeId: string;
-  runtime: "cursor";
+  /** runtime dimension since claude-session-index; widened from "cursor" literal */
+  runtime: RuntimeKind;
   discoveredAt: string;
 };
 
@@ -263,7 +282,8 @@ export type MemoryIndexEntry = MemoryIndexReportItem & {
   id: string;
   workspaceId: string;
   nodeId: string;
-  runtime: "cursor";
+  /** runtime dimension since claude-session-index; widened from "cursor" literal */
+  runtime: RuntimeKind;
   discoveredAt: string;
 };
 

@@ -1,7 +1,8 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type { AdapterContext } from "@agentoryhq/runtime-contract";
-import type { DiscoveredAgent, LiveMcpBinding } from "@agentoryhq/shared";
+import type { DiscoveredAgent, LiveMcpBinding, LiveRuleBinding } from "@agentoryhq/shared";
 
 function readJsonFile(file: string): unknown | undefined {
   try {
@@ -40,6 +41,38 @@ function skillsFromDir(dir: string): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * 规则发现（rules-desired-config）：扫 `.cursor/rules/*.mdc`，只报名字 + 内容 sha256，
+ * 正文永不出节点（会话流索引只读口径不变）。name = 去 .mdc 扩展名的文件名。
+ * hash 契约：sha256(文件字节) = API 侧 ruleBodyHash(body)——文件 = body 原样。
+ * dirs 顺序 = cwd → home，先见优先（cwd 优先，与 asset-index 口径一致）。
+ */
+function rulesFromDirs(dirs: string[]): LiveRuleBinding[] {
+  const byName = new Map<string, LiveRuleBinding>();
+  for (const dir of dirs) {
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const file of entries) {
+      if (!file.endsWith(".mdc")) continue;
+      const name = file.slice(0, -".mdc".length);
+      if (!name || byName.has(name)) continue;
+      const full = path.join(dir, file);
+      try {
+        if (!fs.statSync(full).isFile()) continue;
+        const contentHash = createHash("sha256").update(fs.readFileSync(full)).digest("hex");
+        byName.set(name, { name, contentHash });
+      } catch {
+        continue;
+      }
+    }
+  }
+  return [...byName.values()];
 }
 
 export function detectCursor(ctx: AdapterContext): boolean {
@@ -84,5 +117,9 @@ export function discoverCursorConfig(ctx: AdapterContext): DiscoveredAgent | nul
     displayName: `Cursor · ${path.basename(ctx.cwd) || "workspace"}`,
     mcp: cursorMcp,
     skills: [...skillNames],
+    rules: rulesFromDirs([
+      path.join(ctx.cwd, ".cursor", "rules"),
+      path.join(ctx.homeDir, ".cursor", "rules"),
+    ]),
   };
 }

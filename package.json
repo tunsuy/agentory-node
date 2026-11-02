@@ -1,7 +1,7 @@
 {
   "name": "agentory-node-workspace",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Agentory Node \u2014 open-source Host + RuntimeAdapter contract + adapters",
   "license": "Apache-2.0",
   "workspaces": [
@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "npm run build -w @agentoryhq/shared && npm run build -w @agentoryhq/runtime-contract && npm run build -w @agentoryhq/adapter-cursor && npm run build -w @agentoryhq/adapter-claude-code && npm run build -w @agentoryhq/node",
-    "test": "npm run build && NODE_ENV=test node --test apps/node/dist/discover.test.js apps/node/dist/align.test.js apps/node/dist/probe.test.js adapters/claude-code/dist/index.test.js"
+    "test": "npm run build && NODE_ENV=test node --test apps/node/dist/discover.test.js apps/node/dist/align.test.js apps/node/dist/probe.test.js apps/node/dist/registry.test.js apps/node/dist/mock-runtime.test.js apps/node/dist/github-task.test.js apps/node/dist/asset-index.test.js apps/node/dist/transcript.test.js adapters/claude-code/dist/index.test.js adapters/claude-code/dist/invoke.test.js adapters/claude-code/dist/asset-index.test.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

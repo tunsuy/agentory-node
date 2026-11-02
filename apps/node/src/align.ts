@@ -17,6 +17,10 @@ export type ApplyAlignResult = {
   mcpPath: string;
   skillsPath: string;
   snapshotPath?: string;
+  /** 规则写盘目录(rules-desired-config,cursor-only;未写规则时缺省) */
+  rulesDir?: string;
+  /** 被覆盖规则文件的快照目录(rules-<ts>/;无覆盖时缺省) */
+  rulesSnapshotDir?: string;
 };
 
 /** Host facade — routes to the matching RuntimeAdapter.applyAlign. */

@@ -67,4 +67,4 @@ test("applyAlign refuses without confirm", () => {
 ## Reference implementations
 
 - `adapters/cursor` — full capability set (discover, align, sessions, transcript)
-- `adapters/claude-code` — discover + align (project `.mcp.json`)
+- `adapters/claude-code` — discover + align + indexSessions + readTranscript (project `.mcp.json`; sessions under `~/.claude/projects`)
