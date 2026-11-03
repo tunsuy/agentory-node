@@ -13,6 +13,7 @@ const CAPABILITY_METHODS: Record<AdapterCapability, readonly string[]> = {
   detect: ["detect"],
   discoverConfig: ["discoverConfig"],
   applyAlign: ["applyAlign"],
+  installSkills: ["installSkills"],
   indexSessions: ["indexSessions"],
   readTranscript: ["transcriptFileForSourceKey", "captureTranscriptSnapshot"],
   /** 控制面侧导出（handoff snapshot），无 adapter 方法。 */
@@ -23,6 +24,7 @@ const CAPABILITY_METHODS: Record<AdapterCapability, readonly string[]> = {
 const METHOD_CAPABILITY: Record<string, AdapterCapability> = {
   discoverConfig: "discoverConfig",
   applyAlign: "applyAlign",
+  installSkills: "installSkills",
   indexSessions: "indexSessions",
   transcriptFileForSourceKey: "readTranscript",
   captureTranscriptSnapshot: "readTranscript",
@@ -55,7 +57,7 @@ test("builtin adapters: manifest capabilities match implemented methods", () => 
   }
 });
 
-test("invoke capability 诚实边界（AC-4 契约面）：claude-code 声明并实现；cursor 不声明、不实现", () => {
+test("invoke capability 诚实边界（AC-4 契约面）：claude-code 与 cursor 均声明并实现", () => {
   const claude = adapterForRuntime("claude-code");
   assert.ok(claude);
   assert.ok(hasCapability(claude.manifest, "invoke"), "claude-code 有 headless 执行面，须声明 invoke");
@@ -63,8 +65,20 @@ test("invoke capability 诚实边界（AC-4 契约面）：claude-code 声明并
 
   const cursor = adapterForRuntime("cursor");
   assert.ok(cursor);
-  assert.ok(!hasCapability(cursor.manifest, "invoke"), "cursor 无 headless 执行面，不得声明 invoke");
-  assert.equal(cursor.invoke, undefined);
+  assert.ok(hasCapability(cursor.manifest, "invoke"), "cursor Agent CLI -p 有 headless，须声明 invoke");
+  assert.equal(typeof cursor.invoke, "function");
+});
+
+test("installSkills capability 诚实边界（skillhub-integration）：claude-code 声明并实现；cursor 不声明、不实现", () => {
+  const claude = adapterForRuntime("claude-code");
+  assert.ok(claude);
+  assert.ok(hasCapability(claude.manifest, "installSkills"), "claude-code 一期唯一装 skill 本体，须声明 installSkills");
+  assert.equal(typeof claude.installSkills, "function");
+
+  const cursor = adapterForRuntime("cursor");
+  assert.ok(cursor);
+  assert.ok(!hasCapability(cursor.manifest, "installSkills"), "cursor 一期维持名单 tracking，不得声明 installSkills");
+  assert.equal(cursor.installSkills, undefined);
 });
 
 test("adapterForRuntime resolves builtins; unknown runtime returns undefined", () => {

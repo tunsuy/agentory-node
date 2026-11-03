@@ -27,8 +27,10 @@ export type HeadlessRunOpts = {
 export function runHeadless(opts: HeadlessRunOpts): Promise<InvokeResult> {
   return new Promise((resolve) => {
     const started = Date.now();
-    const chunks: Buffer[] = [];
-    let outputBytes = 0;
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
     let truncated = false;
     let timedOut = false;
     let spawned = false;
@@ -54,26 +56,42 @@ export function runHeadless(opts: HeadlessRunOpts): Promise<InvokeResult> {
       return;
     }
 
-    const append = (buf: Buffer) => {
-      const remaining = opts.maxOutputBytes - outputBytes;
+    /**
+     * 两路输出各自按 maxOutputBytes 封顶。stdout 是任务答案通道；stderr 只在
+     * 非成功（或 stdout 为空）时并入 output——Claude Code 把模型目录告警、
+     * 进度等写在 stderr，成功时合流会把真答案挤出任务结果。
+     */
+    const pushWithin = (
+      chunks: Buffer[],
+      used: number,
+      buf: Buffer,
+      markTruncated: boolean,
+    ): number => {
+      const remaining = opts.maxOutputBytes - used;
       if (remaining <= 0) {
-        if (buf.length > 0) truncated = true;
-        return;
+        if (markTruncated && buf.length > 0) truncated = true;
+        return used;
       }
       if (buf.length > remaining) {
         chunks.push(buf.subarray(0, remaining));
-        outputBytes = opts.maxOutputBytes;
-        truncated = true;
-      } else {
-        chunks.push(buf);
-        outputBytes += buf.length;
+        if (markTruncated) truncated = true;
+        return opts.maxOutputBytes;
       }
+      chunks.push(buf);
+      return used + buf.length;
     };
 
     const finish = (exitCode: number | null, signal: NodeJS.Signals | null) => {
       clearTimeout(timer);
       const durationMs = Date.now() - started;
-      const output = Buffer.concat(chunks).toString("utf8");
+      const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+      const stderr = Buffer.concat(stderrChunks).toString("utf8");
+      const keepStderr =
+        stderr.length > 0 &&
+        (exitCode !== 0 || timedOut || spawnError !== undefined || stdout.trim() === "");
+      const output = keepStderr
+        ? `${stdout}${stdout.length > 0 && !stdout.endsWith("\n") ? "\n" : ""}${stderr}`
+        : stdout;
       const base = { output, truncated, durationMs };
       if (spawnError) {
         resolve({
@@ -135,18 +153,21 @@ export function runHeadless(opts: HeadlessRunOpts): Promise<InvokeResult> {
       spawnError = err;
       finish(null, null);
     });
-    child.stdout?.on("data", (buf: Buffer) => append(buf));
-    child.stderr?.on("data", (buf: Buffer) => append(buf));
+    child.stdout?.on("data", (buf: Buffer) => {
+      stdoutBytes = pushWithin(stdoutChunks, stdoutBytes, buf, true);
+    });
+    child.stderr?.on("data", (buf: Buffer) => {
+      stderrBytes = pushWithin(stderrChunks, stderrBytes, buf, false);
+    });
     child.on("close", (code, signal) => finish(code, signal));
   });
 }
 
 /**
- * Claude Code headless 单发执行（一期：单发单执行，不带上文）。
+ * Claude Code headless 执行。
  *
- * `--session-id <uuid>`：自生成会话标识传给 runtime，从而确定性回填
- * runtimeSessionId（二期 thread resume 走 `--resume <id>`，契约已预留
- * resumeSessionId——一期调用方不得设置，此处忽略）。
+ * - 新开：`--session-id <uuid>` 自生成 → 回填 runtimeSessionId
+ * - 续聊：`req.resumeSessionId` 有值 → `--resume <id>`，回填同一 id（同会话接续）
  *
  * 二进制解析：`CLAUDE_CODE_BIN` env 覆盖（测试/非标准安装），默认 PATH 中 `claude`。
  */
@@ -154,10 +175,12 @@ export async function invokeClaudeCode(
   ctx: AdapterContext,
   req: InvokeRequest,
 ): Promise<InvokeResult> {
-  const sessionId = randomUUID();
+  const resume = typeof req.resumeSessionId === "string" ? req.resumeSessionId.trim() : "";
+  const sessionId = resume || randomUUID();
   const bin = process.env.CLAUDE_CODE_BIN?.trim() || "claude";
-  const args = ["-p", req.prompt, "--session-id", sessionId];
-  // req.resumeSessionId：二期预留，一期忽略（见 playbook 禁止清单「多轮接续二期」）。
+  const args = resume
+    ? ["-p", req.prompt, "--resume", sessionId]
+    : ["-p", req.prompt, "--session-id", sessionId];
   return runHeadless({
     command: bin,
     args,

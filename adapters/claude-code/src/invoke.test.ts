@@ -7,7 +7,7 @@ import { invokeClaudeCode, runHeadless } from "./invoke.js";
 
 const baseOpts = { timeoutMs: 10_000, maxOutputBytes: 64 * 1024 };
 
-test("runHeadless: done captures stdout+stderr and exit code 0", async () => {
+test("runHeadless: done 只把 stdout 当结果，stderr 不并入 output", async () => {
   const res = await runHeadless({
     command: "/bin/sh",
     args: ["-c", "echo out-line; echo err-line >&2"],
@@ -17,9 +17,20 @@ test("runHeadless: done captures stdout+stderr and exit code 0", async () => {
   assert.equal(res.outcome, "done");
   assert.equal(res.exitCode, 0);
   assert.match(res.output, /out-line/);
-  assert.match(res.output, /err-line/);
+  assert.doesNotMatch(res.output, /err-line/, "成功时 stderr（告警/进度）不得混入任务输出");
   assert.equal(res.truncated, false);
   assert.ok(res.durationMs >= 0);
+});
+
+test("runHeadless: done 且 stdout 为空时回退 stderr（不吞 runtime 输出）", async () => {
+  const res = await runHeadless({
+    command: "/bin/sh",
+    args: ["-c", "echo only-stderr >&2"],
+    cwd: os.tmpdir(),
+    ...baseOpts,
+  });
+  assert.equal(res.outcome, "done");
+  assert.match(res.output, /only-stderr/);
 });
 
 test("runHeadless: non-zero exit → failed with 退出码 errorText", async () => {
@@ -33,6 +44,18 @@ test("runHeadless: non-zero exit → failed with 退出码 errorText", async () 
   assert.equal(res.exitCode, 3);
   assert.match(res.output, /partial/);
   assert.match(res.errorText ?? "", /退出码 3/);
+});
+
+test("runHeadless: 失败时保留 stderr 供诊断", async () => {
+  const res = await runHeadless({
+    command: "/bin/sh",
+    args: ["-c", "echo partial; echo boom >&2; exit 7"],
+    cwd: os.tmpdir(),
+    ...baseOpts,
+  });
+  assert.equal(res.outcome, "failed");
+  assert.match(res.output, /partial/);
+  assert.match(res.output, /boom/, "失败时 stderr 是诊断主力，必须保留");
 });
 
 test("runHeadless: timeout kills the process group and keeps partial output (AC-7)", async () => {
@@ -114,7 +137,7 @@ test("invokeClaudeCode: headless args + runtimeSessionId 回填 + 零权限放�
     assert.match(
       res.runtimeSessionId ?? "",
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      "runtimeSessionId 应为 UUID（二期 --resume 可用）",
+      "runtimeSessionId 应为 UUID（可供后续 --resume）",
     );
     const sentArgs = fs.readFileSync(argsFile, "utf8").split("\n").filter(Boolean);
     assert.deepEqual(sentArgs, [
@@ -136,7 +159,7 @@ test("invokeClaudeCode: headless args + runtimeSessionId 回填 + 零权限放�
   }
 });
 
-test("invokeClaudeCode: resumeSessionId 一期忽略（不产生 --resume 类参数）", async () => {
+test("invokeClaudeCode: resumeSessionId → --resume 接续 + 回填同一 session id", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agy-claude-r-"));
   const argsFile = path.join(root, "args.txt");
   const fakeBin = path.join(root, "fake-claude.sh");
@@ -147,20 +170,23 @@ test("invokeClaudeCode: resumeSessionId 一期忽略（不产生 --resume 类参
   );
   const prev = process.env.CLAUDE_CODE_BIN;
   process.env.CLAUDE_CODE_BIN = fakeBin;
+  const resumeId = "11111111-2222-3333-4444-555555555555";
   try {
-    await invokeClaudeCode(
+    const res = await invokeClaudeCode(
       { homeDir: root, cwd: root },
       {
-        prompt: "hi",
+        prompt: "继续上次话题",
         timeoutMs: 10_000,
         maxOutputBytes: 4096,
         cwd: root,
-        resumeSessionId: "should-be-ignored",
+        resumeSessionId: resumeId,
       },
     );
-    const sentArgs = fs.readFileSync(argsFile, "utf8");
-    assert.ok(!sentArgs.includes("should-be-ignored"));
-    assert.ok(!sentArgs.includes("--resume"));
+    assert.equal(res.outcome, "done");
+    assert.equal(res.runtimeSessionId, resumeId);
+    const sentArgs = fs.readFileSync(argsFile, "utf8").split("\n").filter(Boolean);
+    assert.deepEqual(sentArgs, ["-p", "继续上次话题", "--resume", resumeId]);
+    assert.ok(!sentArgs.includes("--session-id"), "续聊不得再开 --session-id");
   } finally {
     if (prev === undefined) delete process.env.CLAUDE_CODE_BIN;
     else process.env.CLAUDE_CODE_BIN = prev;

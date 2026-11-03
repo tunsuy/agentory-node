@@ -81,7 +81,8 @@ export function discoverClaudeCodeConfig(ctx: AdapterContext): DiscoveredAgent |
   return {
     runtime: "claude-code",
     supported: true,
-    displayName: `Claude Code · ${path.basename(ctx.cwd) || "workspace"}`,
+    // 实例名 = runtime 显示名；项目目录已由节点/会话索引表达，不再拼进 displayName
+    displayName: "Claude Code",
     mcp,
     skills: [...skillNames],
     // 诚实边界（rules-desired-config Q1 裁决）：一期规则载体只有 cursor（.cursor/rules/*.mdc），

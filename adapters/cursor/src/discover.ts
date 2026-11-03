@@ -114,7 +114,8 @@ export function discoverCursorConfig(ctx: AdapterContext): DiscoveredAgent | nul
   return {
     runtime: "cursor",
     supported: true,
-    displayName: `Cursor · ${path.basename(ctx.cwd) || "workspace"}`,
+    // 实例名 = runtime 显示名；项目目录已由节点/会话索引表达，不再拼进 displayName
+    displayName: "Cursor",
     mcp: cursorMcp,
     skills: [...skillNames],
     rules: rulesFromDirs([
