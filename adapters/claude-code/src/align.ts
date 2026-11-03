@@ -3,8 +3,8 @@ import path from "node:path";
 import type { ApplyAlignOpts, ApplyAlignResult } from "@agentoryhq/runtime-contract";
 
 type McpServerEntry =
-  | { command: string; args?: string[] }
-  | { type: "http"; url: string };
+  | { command: string; args?: string[]; env?: Record<string, string> }
+  | { type: "http"; url: string; headers?: Record<string, string> };
 
 /**
  * Write confirmed align patch to Claude Code project files.
@@ -44,13 +44,20 @@ export function applyAlignPatch(opts: ApplyAlignOpts): ApplyAlignResult {
     for (const item of opts.patch.mcp) {
       const command = item.command?.trim() || "echo";
       if (/^https?:\/\//i.test(command)) {
-        mcpServers[item.name] = { type: "http", url: command };
+        // mcp-registry-integration：remote 鉴权头原样落盘（值仅 ${ENV} 占位符/非敏感
+        // 明文——秘密本体只在节点环境变量，invariant #6；写侧 validateDesiredMcp 形状校验）。
+        const headers =
+          item.headers && Object.keys(item.headers).length ? item.headers : undefined;
+        mcpServers[item.name] = { type: "http", url: command, ...(headers ? { headers } : {}) };
         continue;
       }
       const parts = command.split(/\s+/);
+      // stdio env：Claude Code 原生展开 ${ENV}（AC-6：.mcp.json env 原样落盘）。
+      const env = item.env && Object.keys(item.env).length ? item.env : undefined;
       mcpServers[item.name] = {
         command: parts[0] ?? "echo",
         args: parts.length > 1 ? parts.slice(1) : undefined,
+        ...(env ? { env } : {}),
       };
     }
     const mcpBody = JSON.stringify({ mcpServers }, null, 2);

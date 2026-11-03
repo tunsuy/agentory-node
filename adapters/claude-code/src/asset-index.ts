@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { AdapterContext, AssetIndexResult } from "@agentoryhq/runtime-contract";
 import type { MemoryIndexReportItem, SessionIndexReportItem } from "@agentoryhq/shared";
+import { summarizeMemoryFile } from "./memory-summary.js";
 
 const TITLE_MAX = 80;
 const PEEK_BYTES = 16 * 1024;
@@ -214,6 +215,8 @@ export function indexClaudeSessions(ctx: AdapterContext): AssetIndexResult {
           projectPath: slugProjectPath,
           updatedAt: mtimeIso(file),
           runtime: "claude-code",
+          // memory-asset-cards：节点侧摘要（frontmatter → 首行回退；mask + 截断后才出机，全文永不出机）
+          ...summarizeMemoryFile(file),
         });
       }
     }

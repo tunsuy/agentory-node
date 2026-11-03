@@ -18,6 +18,12 @@ export {
   projectPathFromClaudeSessionJsonl,
 } from "./asset-index.js";
 export {
+  SUMMARY_READ_MAX_BYTES,
+  firstBodyLine,
+  parseMemoryFrontmatter,
+  summarizeMemoryFile,
+} from "./memory-summary.js";
+export {
   TRANSCRIPT_MESSAGE_MAX_CHARS,
   TRANSCRIPT_WINDOW_MESSAGES,
   captureTranscriptSnapshot,
