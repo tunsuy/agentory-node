@@ -1,4 +1,4 @@
-export const PKG_VERSION = "0.1.1";
+export const PKG_VERSION = "0.1.3";
 
 export const DEFAULT_API_PORT = 8787;
 export const DEFAULT_CONSOLE_PORT = 5173;
@@ -51,13 +51,95 @@ export type Membership = {
 /** 期望态规则条目：name = 规则名（节点侧落 .cursor/rules/<name>.mdc 文件名语义），body = markdown 正文整段透传（rules-desired-config Q3 裁决：不解构 frontmatter）。 */
 export type DesiredRule = { name: string; body: string };
 
+/**
+ * 期望态 Skill 条目（skillhub-integration）：旧数据是纯 string（= 目录名，无来源），
+ * 新数据可为结构化条目。name 恒 = 节点侧 skills 目录名（skillhub 源 = slug，与
+ * claude-code discovery「目录名」口径一致，装好即 diff 收敛 keep）。
+ * source 留扩展位，一期只有 "skillhub" 一个实现（brief 非目标：不接其他源）。
+ */
+export type DesiredSkillSourceKind = "skillhub";
+
+export type DesiredSkillEntry = {
+  name: string;
+  source?: DesiredSkillSourceKind;
+  slug?: string;
+  /** 选装时固定的版本（semver）；升级 = 用户显式改版本重装，不自动跟随 latest */
+  version?: string;
+};
+
+/** 读侧宽容类型：存量 `string[]` 与结构化条目并存（AC-8）。 */
+export type DesiredSkill = string | DesiredSkillEntry;
+
+export function desiredSkillName(s: DesiredSkill): string {
+  return typeof s === "string" ? s : s.name;
+}
+
+/**
+ * 读侧归一（AC-8 向后兼容单点）：string → {name}；对象条目做宽容清洗
+ * （name 非空字符串才保留；source 只认 "skillhub"，其他值丢弃降级为无来源；
+ * slug/version 非字符串丢弃）；按 name 去重（先到先得）。脏条目静默滤除，
+ * 与 discovery parseDiscoveredAgents 同口径。
+ */
+export function normalizeDesiredSkills(raw: unknown): DesiredSkillEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DesiredSkillEntry[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    let entry: DesiredSkillEntry | undefined;
+    if (typeof item === "string") {
+      const name = item.trim();
+      if (name) entry = { name };
+    } else if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+      const o = item as Record<string, unknown>;
+      const name = typeof o.name === "string" ? o.name.trim() : "";
+      if (name) {
+        entry = { name };
+        if (o.source === "skillhub") {
+          entry.source = "skillhub";
+          if (typeof o.slug === "string" && o.slug.trim()) entry.slug = o.slug.trim();
+          if (typeof o.version === "string" && o.version.trim()) entry.version = o.version.trim();
+        }
+      }
+    }
+    if (!entry || seen.has(entry.name)) continue;
+    seen.add(entry.name);
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * 节点安装结果上报条目（skillhub-integration 拉模型安装通道）：
+ * installed = zip 校验通过且落盘；failed = 任一环节失败（error 必填可读原因）。
+ * integrity = sha256 校验失败（供应链信号：不自动重试，需用户显式改版本/重选装）。
+ */
+export type SkillInstallReport = {
+  slug: string;
+  version?: string;
+  status: "installed" | "failed";
+  error?: string;
+  integrity?: boolean;
+  installedAt?: string;
+};
+
+/** 安装状态存储行（skill_install_status 表 / memory Map 同构）：按 (workspace, node, slug) 唯一。 */
+export type SkillInstallRow = SkillInstallReport & {
+  workspaceId: string;
+  nodeId: string;
+  updatedAt: string;
+};
+
+/** 节点安装通道拉取条目：desired 中带 skillhub 来源、该节点尚未装成的技能。 */
+export type PendingSkillInstall = { name: string; slug: string; version?: string };
+
 /** 规则发现上报条目：只报名字与内容 hash，正文不上传（会话流索引只读口径不变）。hash 契约 = sha256(body UTF-8 字节) hex。 */
 export type LiveRuleBinding = { name: string; contentHash?: string };
 
 export type DesiredCatalog = {
   workspaceId: string;
   mcp: { name: string; command?: string }[];
-  skills: string[];
+  /** 纯 string（存量，无来源）或结构化条目（skillhub-integration）；读侧走 normalizeDesiredSkills */
+  skills: DesiredSkill[];
   rules: DesiredRule[];
   updatedAt: string;
 };
@@ -75,6 +157,10 @@ export type AlignDiffItem = {
   /** 规则维 hash 对照（kind="rule"）：live 上报的内容 hash / desired 正文 hash */
   liveHash?: string;
   desiredHash?: string;
+  /** Skill 来源维（kind="skill" · skillhub-integration）：desired 条目的来源/版本透传，供 Console 徽标 */
+  source?: DesiredSkillSourceKind;
+  slug?: string;
+  version?: string;
   note?: string;
 };
 
@@ -205,6 +291,11 @@ export type DiscoveredAgent = {
   skills: string[];
   /** 可选 = 老节点上报无 rules 字段零破坏；API 侧归一为 [] */
   rules?: LiveRuleBinding[];
+  /**
+   * 稳定实例标识：节点按 (runtime + 根目录) 派生，跨 discovery 轮次保持不变，
+   * 供会话索引/消息等精确绑定到具体 Agent 实例（避免 runtime+nodeId 的宽松启发式）。
+   */
+  agentInstanceId?: string;
 };
 
 export type AgentRecord = DiscoveredAgent & {
@@ -233,6 +324,8 @@ export type SessionIndexReportItem = {
   updatedAt: string;
   /** runtime the item was discovered by; absent = legacy node payload → API defaults "cursor" */
   runtime?: RuntimeKind;
+  /** 产出该会话的 Agent 实例稳定 id（节点上报）；absent = 老节点 → 前端回退 runtime+node 启发式 */
+  agentInstanceId?: string;
 };
 
 /** Read-only memory/rules metadata (no file body), any indexed runtime. */

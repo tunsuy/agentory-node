@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AlignPlan } from "@agentoryhq/shared";
+import type { AlignPlan, PendingSkillInstall, SkillInstallReport } from "@agentoryhq/shared";
 import { controlPlaneBaseUrl } from "@agentoryhq/shared";
 import { applyAlignPatch } from "./align.js";
 import { discoverAssetIndex } from "./asset-index.js";
 import { discoverAgentsWithHealth } from "./discover.js";
 import { adapterForRuntime } from "./registry.js";
-import type { InvokeResult } from "@agentoryhq/runtime-contract";
+import type { InvokeResult, SkillFileManifestEntry } from "@agentoryhq/runtime-contract";
 import { captureTranscriptForSourceKey } from "./transcript.js";
 import { executeGithubTask, type GithubTaskPayload } from "./github-task.js";
 import type { TranscriptSnapshot } from "@agentoryhq/shared";
@@ -56,6 +56,38 @@ async function api(
   });
   const body = (await res.json()) as Record<string, unknown>;
   return { status: res.status, body };
+}
+
+/** 二进制 GET（skill zip 下载走控制面代理；节点零直连 skillhub）。 */
+async function apiBytes(
+  urlPath: string,
+  token: string,
+): Promise<{ status: number; bytes?: Uint8Array }> {
+  const res = await fetch(`${controlPlaneBaseUrl()}${urlPath}`, {
+    headers: { authorization: `Bearer ${token}`, accept: "application/zip" },
+  });
+  if (!res.ok) return { status: res.status };
+  return { status: res.status, bytes: new Uint8Array(await res.arrayBuffer()) };
+}
+
+/** files 清单解包：上游信封 {code,message,data:{files}} 与裸 {files} 都容忍。 */
+function manifestFromFilesBody(
+  body: Record<string, unknown>,
+): SkillFileManifestEntry[] | undefined {
+  const data = (body.data as Record<string, unknown> | undefined) ?? body;
+  const files = data.files;
+  if (!Array.isArray(files)) return undefined;
+  const out: SkillFileManifestEntry[] = [];
+  for (const f of files) {
+    if (typeof f !== "object" || f === null) continue;
+    const o = f as Record<string, unknown>;
+    if (typeof o.path !== "string" || !o.path) continue;
+    const entry: SkillFileManifestEntry = { path: o.path };
+    if (typeof o.size === "number") entry.size = o.size;
+    if (typeof o.sha256 === "string" && o.sha256) entry.sha256 = o.sha256;
+    out.push(entry);
+  }
+  return out;
 }
 
 export async function registerNode(rootToken: string, name: string): Promise<number> {
@@ -209,6 +241,7 @@ export async function fulfillPendingMessages(): Promise<number> {
       body: string;
       timeoutMs: number;
       maxOutputBytes: number;
+      resumeSessionId?: string;
     }>) ?? [];
   if (!pending.length) {
     console.log(JSON.stringify({ executed: 0, reported: 0, outcomes: {} }, null, 2));
@@ -241,6 +274,7 @@ export async function fulfillPendingMessages(): Promise<number> {
             timeoutMs: msg.timeoutMs,
             maxOutputBytes: msg.maxOutputBytes,
             cwd,
+            ...(msg.resumeSessionId ? { resumeSessionId: msg.resumeSessionId } : {}),
           },
         );
       } catch (err) {
@@ -399,4 +433,114 @@ export async function applyPendingAligns(): Promise<number> {
   }
   console.log(JSON.stringify({ applied: plans.length - failed, failed, results }, null, 2));
   return failed ? 1 : 0;
+}
+
+/**
+ * Skill 安装通道（skillhub-integration · 拉模型，独立于 align 计划）：
+ * 拉取 pending（控制面按 desired × 安装状态推导）→ 经控制面代理取 files 清单
+ * + zip（节点零直连 skillhub）→ adapter.installSkills 逐文件 sha256 校验落盘
+ * → 回流结果。sha256 不符 = integrity 信号（控制面不自动重试）；其余失败
+ * 下周期自动重试（AC-7）；同版本已装 → skipped 幂等（AC-5）。
+ * zip 内容/清单正文不落节点日志——只回计数与状态（AC-9 同纪律）。
+ */
+export async function fulfillPendingSkillInstalls(): Promise<number> {
+  const st = loadState();
+  if (!st) {
+    console.error("not registered; run: agentory-node register --token <root>");
+    return 2;
+  }
+  const { status, body } = await api("GET", `/v1/nodes/${st.nodeId}/skillhub/pending`, {
+    token: st.nodeToken,
+  });
+  if (status !== 200) {
+    console.error(status, JSON.stringify(body));
+    return 1;
+  }
+  const pending = (body.installs as PendingSkillInstall[]) ?? [];
+  if (!pending.length) {
+    console.log(JSON.stringify({ pending: 0, installed: 0, failed: 0 }, null, 2));
+    return 0;
+  }
+  const adapter = adapterForRuntime("claude-code");
+  const cwd = process.cwd();
+  const reports: SkillInstallReport[] = [];
+  let installed = 0;
+  let skipped = 0;
+  let failed = 0;
+  let integrity = 0;
+  for (const item of pending) {
+    if (!item.version) continue; // 防御：选装时版本已固定，pending 必带 version
+    let report: SkillInstallReport;
+    try {
+      if (!adapter?.installSkills) {
+        // 节点侧无安装能力（版本偏差）：诚实回流 failed 而不是静默丢弃。
+        report = {
+          slug: item.slug,
+          version: item.version,
+          status: "failed",
+          error: "no installSkills adapter for runtime claude-code",
+        };
+      } else {
+        const q = `slug=${encodeURIComponent(item.slug)}&version=${encodeURIComponent(item.version)}`;
+        const filesRes = await api("GET", `/v1/nodes/${st.nodeId}/skillhub/files?${q}`, {
+          token: st.nodeToken,
+        });
+        const manifest = filesRes.status === 200 ? manifestFromFilesBody(filesRes.body) : undefined;
+        const dl = manifest
+          ? await apiBytes(`/v1/nodes/${st.nodeId}/skillhub/download?${q}`, st.nodeToken)
+          : undefined;
+        if (!manifest || !dl?.bytes) {
+          // 来源暂不可用：非 integrity，控制面下周期自动重试（AC-7）。
+          report = {
+            slug: item.slug,
+            version: item.version,
+            status: "failed",
+            error: `skillhub source unavailable (files HTTP ${filesRes.status}${manifest ? "" : ", no manifest"}${dl ? `, download HTTP ${dl.status}` : ""})`,
+          };
+        } else {
+          const outcomes = await adapter.installSkills(
+            { homeDir: os.homedir(), cwd },
+            { items: [{ slug: item.slug, version: item.version, zip: dl.bytes, files: manifest }] },
+          );
+          const out = outcomes[0];
+          if (!out || out.status === "failed") {
+            report = { slug: item.slug, version: item.version, status: "failed" };
+            if (out?.error) report.error = out.error;
+            if (out?.integrity) report.integrity = true;
+          } else {
+            report = { slug: item.slug, version: item.version, status: "installed" };
+            if (out.status === "skipped") skipped += 1;
+            else installed += 1;
+          }
+        }
+      }
+    } catch (err) {
+      report = {
+        slug: item.slug,
+        version: item.version,
+        status: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+    if (report.status === "failed") {
+      failed += 1;
+      if (report.integrity) integrity += 1;
+    }
+    reports.push(report);
+  }
+  if (reports.length) {
+    const res = await api("POST", `/v1/nodes/${st.nodeId}/skillhub/report`, {
+      token: st.nodeToken,
+      body: { installs: reports },
+    });
+    if (res.status !== 200) {
+      // 回流失败：状态行未落库 → 下周期同批重试（adapter 幂等 skipped 兜底）。
+      console.error(res.status, JSON.stringify(res.body));
+      return 1;
+    }
+  }
+  console.log(
+    JSON.stringify({ pending: pending.length, installed, skipped, failed, integrity }, null, 2),
+  );
+  return 0;
 }

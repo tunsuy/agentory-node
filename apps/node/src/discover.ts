@@ -4,6 +4,7 @@ import type { AdapterContext } from "@agentoryhq/runtime-contract";
 import type { DiscoveredAgent } from "@agentoryhq/shared";
 import { probeAll } from "./probe.js";
 import { builtinAdapters } from "./registry.js";
+import { agentInstanceIdFor } from "./instance-id.js";
 
 export type DiscoverOpts = {
   /** Override home for tests. */
@@ -46,7 +47,12 @@ function discoverAgentsSync(opts: DiscoverOpts = {}): DiscoveredAgent[] {
     if (!adapter.detect(ctx)) continue;
     if (adapter.discoverConfig) {
       const agent = adapter.discoverConfig(ctx);
-      if (agent) agents.push(agent);
+      if (agent) {
+        agents.push({
+          ...agent,
+          agentInstanceId: agent.agentInstanceId ?? agentInstanceIdFor(agent.runtime, ctx.cwd),
+        });
+      }
     }
   }
   return agents;

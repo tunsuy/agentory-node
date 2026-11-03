@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { discoverAssetIndex } from "./asset-index.js";
+import { discoverAssetIndex, capSessionsPerRuntime, SESSIONS_PER_AGENT_MAX } from "./asset-index.js";
 
 test("discoverAssetIndex reads rules and session meta without bodies", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentory-idx-"));
@@ -105,4 +105,25 @@ test("discoverAssetIndex reads native agent-transcripts metadata only", () => {
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("capSessionsPerRuntime keeps only the latest N per runtime", () => {
+  const mk = (runtime: "cursor" | "claude-code", i: number) => ({
+    sourceKey: `${runtime}-${i}`,
+    displayName: `${runtime} ${i}`,
+    updatedAt: new Date(Date.UTC(2026, 8, 1, 0, i)).toISOString(),
+    runtime,
+  });
+  // 12 cursor + 12 claude-code，已按 updatedAt 倒序
+  const sorted = [
+    ...Array.from({ length: 12 }, (_, i) => mk("cursor", i)),
+    ...Array.from({ length: 12 }, (_, i) => mk("claude-code", i)),
+  ].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+
+  const out = capSessionsPerRuntime(sorted);
+  assert.equal(out.length, SESSIONS_PER_AGENT_MAX * 2);
+  assert.equal(out.filter((s) => s.runtime === "cursor").length, SESSIONS_PER_AGENT_MAX);
+  assert.equal(out.filter((s) => s.runtime === "claude-code").length, SESSIONS_PER_AGENT_MAX);
+  // 每组保留最新那条
+  assert.equal(out.find((s) => s.runtime === "cursor")?.updatedAt, mk("cursor", 11).updatedAt);
 });

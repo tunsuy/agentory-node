@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-03
+
+### Added
+
+- `@agentoryhq/adapter-claude-code` — `installSkills` (SkillHub zip: path/symlink/zip64 guards, per-file sha256, atomic swap) + invoke `--resume` / `--session-id` for multi-turn continue.
+- `@agentoryhq/adapter-cursor` — headless `invoke` via `agent -p --output-format json` (no `--force` / `--yolo`; ADR-005) + optional `--resume`.
+- Host: stable agent instance id wiring; skill-install pull channel pieces already on the control plane remain private — node reports/install path for SkillHub files.
+- Wire: `resumeSessionId` on invoke/message claim path; desired-skill structured source/slug/version (additive).
+
 ### Changed
 
-- Documentation layout aligned with common open-source project norms (SECURITY, SUPPORT, CoC, issue/PR templates, CI).
+- Workspace package version **0.1.4**; OSS root `npm test` includes claude `install` + cursor `invoke` suites.
 
 ## [0.1.3] - 2026-11-02
 
