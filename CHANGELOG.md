@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-03
+
+### Added
+
+- `@agentoryhq/adapter-claude-code` / `@agentoryhq/adapter-cursor` — `memory-summary` extractors for asset-index memory rows (`title` / `description` / `memType` / `contentHash`; mask+clamp before leave host; full text never exported).
+- `@agentoryhq/adapter-claude-code` align — MCP desired entries pass through `env` / `headers` into `.mcp.json` (stdio env + http headers; `${ENV}` expansion unchanged).
+- Wire: memory index additive card fields; desired MCP structured `source`/`slug`/`version`/`env`/`headers` (additive; legacy `{name,command?}` intact).
+
+### Changed
+
+- Workspace package version **0.1.5**.
+
 ## [0.1.4] - 2026-11-03
 
 ### Added
@@ -68,7 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm scope is `@agentoryhq` because the unscoped package name `agentory` is already taken on the public registry.
 - Phase 1 accepts **in-tree** `adapters/*` PRs only (no dynamic third-party loader).
 
-[Unreleased]: https://github.com/tunsuy/agentory-node/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/tunsuy/agentory-node/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/tunsuy/agentory-node/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/tunsuy/agentory-node/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/tunsuy/agentory-node/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/tunsuy/agentory-node/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/tunsuy/agentory-node/releases/tag/v0.1.1

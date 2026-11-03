@@ -12,6 +12,12 @@ export {
   indexCursorSessions,
   titleFromTranscriptJsonl,
 } from "./asset-index.js";
+export {
+  SUMMARY_READ_MAX_BYTES,
+  firstBodyLine,
+  parseMemoryFrontmatter,
+  summarizeMemoryFile,
+} from "./memory-summary.js";
 export { detectCursor, discoverCursorConfig } from "./discover.js";
 export { invokeCursor, runHeadless } from "./invoke.js";
 export {

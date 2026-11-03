@@ -1,6 +1,6 @@
 {
   "name": "@agentoryhq/runtime-contract",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Agentory RuntimeAdapter contract (manifest + capabilities)",
   "license": "Apache-2.0",
   "type": "module",

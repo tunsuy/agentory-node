@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { MEMORY_DESC_MAX } from "@agentoryhq/shared";
 import {
   TRANSCRIPT_MESSAGE_MAX_CHARS,
   TRANSCRIPT_WINDOW_MESSAGES,
@@ -10,6 +11,7 @@ import {
   indexClaudeSessions,
   maskSecrets,
   projectPathFromClaudeSessionJsonl,
+  summarizeMemoryFile,
   titleFromClaudeSessionJsonl,
   transcriptFileForSourceKey,
 } from "./index.js";
@@ -94,6 +96,9 @@ test("indexClaudeSessions discovers sessions + memory, excludes subdirs and non-
     assert.match(m.pathLabel, /Users-demo-work-app\/memory\/MEMORY\.md/);
     // memory projectPath inherits cwd from a sibling session in the same slug
     assert.equal(m.projectPath, "/Users/demo/work/app");
+    // memory-asset-cards: "# index\n" 无 frontmatter → title 回退文件名、hash 恒在（AC-1/AC-4）
+    assert.equal(m.title, "MEMORY");
+    assert.match(m.contentHash ?? "", /^[0-9a-f]{16}$/);
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
@@ -278,6 +283,85 @@ test("transcriptFileForSourceKey enforces ~/.claude/projects containment (invari
     // cursor-prefixed keys are not ours — must not resolve
     assert.equal(transcriptFileForSourceKey(`cursor-transcript:${inside}`, home), undefined);
     assert.equal(transcriptFileForSourceKey("claude-session:", home), undefined);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+// ── memory-asset-cards：节点侧记忆摘要（frontmatter → 回退；mask + 截断在出机前，全文永不出机）──
+
+function writeMemFile(dir: string, name: string, content: string): string {
+  fs.mkdirSync(dir, { recursive: true });
+  const f = path.join(dir, name);
+  fs.writeFileSync(f, content);
+  return f;
+}
+
+test("summarizeMemoryFile: frontmatter wins, secrets masked BEFORE egress (memory-asset-cards AC-1/AC-3)", () => {
+  const home = makeHome();
+  try {
+    const dir = path.join(home, "mem");
+    const f = writeMemFile(
+      dir,
+      "deploy-prefs.md",
+      [
+        "---",
+        "name: 部署偏好",
+        "description: 用户偏好 canary 发布；密钥 sk-abcdef0123456789abcdef 不得外泄",
+        "metadata:",
+        "  type: user",
+        "---",
+        "# 正文",
+        "正文首行不应被采用",
+      ].join("\n"),
+    );
+    const s = summarizeMemoryFile(f);
+    assert.equal(s.title, "部署偏好");
+    assert.equal(s.memType, "user");
+    assert.ok(s.description?.includes("canary 发布"));
+    // AC-3 负断言：真令牌形态在出机前已脱敏
+    assert.ok(!s.description?.includes("sk-abcdef0123456789"));
+    assert.ok(s.description?.includes("sk-••••••••"));
+    assert.match(s.contentHash ?? "", /^[0-9a-f]{16}$/);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("summarizeMemoryFile: no frontmatter → filename + first body line; over-limit truncated (AC-1)", () => {
+  const home = makeHome();
+  try {
+    const dir = path.join(home, "mem2");
+    const f = writeMemFile(dir, "my-notes.md", "# 标题\n\nfirst real line\nsecond line\n");
+    const s = summarizeMemoryFile(f);
+    assert.equal(s.title, "my-notes");
+    assert.equal(s.description, "first real line");
+    assert.equal(s.memType, undefined);
+
+    // 注意：不能用 "x".repeat(N)——单字符长串会命中 maskSecrets 长密钥形态被整体掩码，
+    // 测不到截断分支；用带空格的长词文本（脱敏不动、纯超长）
+    const long = writeMemFile(dir, "long.md", `# t\n\n${"release notes ".repeat(30)}\n`);
+    const ls = summarizeMemoryFile(long);
+    assert.ok(ls.description!.length <= MEMORY_DESC_MAX);
+    assert.ok(ls.description!.endsWith("…"));
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("summarizeMemoryFile: contentHash stable per content; oversized file → no summary (AC-2/AC-3)", () => {
+  const home = makeHome();
+  try {
+    const dir = path.join(home, "mem3");
+    const a = writeMemFile(dir, "a.md", "same body\n");
+    const b = writeMemFile(dir, "b.md", "same body\n");
+    const c = writeMemFile(dir, "c.md", "different body\n");
+    // 同内容异路径 → 同 hash（跨 Agent 归组键）；异内容 → 异 hash（负断言：不瞎合并）
+    assert.equal(summarizeMemoryFile(a).contentHash, summarizeMemoryFile(b).contentHash);
+    assert.notEqual(summarizeMemoryFile(a).contentHash, summarizeMemoryFile(c).contentHash);
+
+    const big = writeMemFile(dir, "big.md", "y".repeat(256 * 1024 + 1));
+    assert.deepEqual(summarizeMemoryFile(big), {}); // 诚实「无摘要」，不半读大文件
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }

@@ -1,4 +1,4 @@
-export const PKG_VERSION = "0.1.3";
+export const PKG_VERSION = "0.1.5";
 
 export const DEFAULT_API_PORT = 8787;
 export const DEFAULT_CONSOLE_PORT = 5173;
@@ -135,9 +135,38 @@ export type PendingSkillInstall = { name: string; slug: string; version?: string
 /** 规则发现上报条目：只报名字与内容 hash，正文不上传（会话流索引只读口径不变）。hash 契约 = sha256(body UTF-8 字节) hex。 */
 export type LiveRuleBinding = { name: string; contentHash?: string };
 
+/**
+ * 期望态 MCP 条目（mcp-registry-integration）：存量形状 {name, command?} 零破坏，
+ * 新字段全部可选（additive，wire 兼容老节点——老节点忽略新字段照常按 command 对齐）。
+ * source="mcp-registry" 时 slug = Registry 全名（命名空间/service，内部追溯用）；
+ * env/headers 值 = `${ENV}` 占位符或显式非敏感明文（invariant #6：秘密本体只在节点侧
+ * 环境变量，控制面存储/审计/响应/展示零密钥明文——写侧 validateDesiredMcp 单点校验）。
+ */
+export type DesiredMcpSourceKind = "mcp-registry";
+
+export type DesiredMcpEntry = {
+  name: string;
+  command?: string;
+  source?: DesiredMcpSourceKind;
+  slug?: string;
+  /** 选装时固定的版本；升级 = 显式重新选装（不自动跟随 latest） */
+  version?: string;
+  /** stdio 环境变量（.mcp.json env 原样落盘，Claude 原生 ${ENV} 展开） */
+  env?: Record<string, string>;
+  /** remote 鉴权头（.mcp.json headers 原样落盘，值仅占位符/非敏感明文） */
+  headers?: Record<string, string>;
+};
+
+/** Registry 全名 → 服务自身名字（负责人裁决 2026-11-03：去命名空间前缀作主展示/desired name）。 */
+export function registryServiceName(fullName: string): string {
+  const i = fullName.indexOf("/");
+  return i >= 0 ? fullName.slice(i + 1) : fullName;
+}
+
 export type DesiredCatalog = {
   workspaceId: string;
-  mcp: { name: string; command?: string }[];
+  /** 存量 {name, command?} 与新结构化条目同形（DesiredMcpEntry 全可选扩展，AC-9 零破坏） */
+  mcp: DesiredMcpEntry[];
   /** 纯 string（存量，无来源）或结构化条目（skillhub-integration）；读侧走 normalizeDesiredSkills */
   skills: DesiredSkill[];
   rules: DesiredRule[];
@@ -165,7 +194,8 @@ export type AlignDiffItem = {
 };
 
 export type AlignPatch = {
-  mcp: { name: string; command?: string }[];
+  /** mcp-registry-integration：条目可带 env/headers（additive；老节点忽略新字段零破坏） */
+  mcp: DesiredMcpEntry[];
   skills: string[];
   /** 可选 = node↔api 版本偏差容忍：老节点收到无 rules 的 patch 按老形状执行 */
   rules?: DesiredRule[];
@@ -328,7 +358,16 @@ export type SessionIndexReportItem = {
   agentInstanceId?: string;
 };
 
-/** Read-only memory/rules metadata (no file body), any indexed runtime. */
+/** memory-asset-cards: 节点侧摘要字段长度上限（常量同源——节点截断 + API ingest 拒绝超限，AC-3 双侧硬上限）。 */
+export const MEMORY_TITLE_MAX = 80;
+export const MEMORY_DESC_MAX = 200;
+/** contentHash 形态：文件内容 sha256 前 16 hex（节点侧计算；hash 出机 ≠ 内容出机）。 */
+export const MEMORY_HASH_RE = /^[0-9a-f]{16}$/;
+
+/** Read-only memory/rules metadata (no file body), any indexed runtime.
+ *  memory-asset-cards additive：title/description/memType/contentHash 为节点侧
+ *  摘要提取产物（frontmatter 优先 + 首行回退，节点侧脱敏 + 截断后才出机；
+ *  全文永不出机）。老节点不带新字段，wire 零破坏（AC-4）。 */
 export type MemoryIndexReportItem = {
   sourceKey: string;
   kind: "memory" | "rules";
@@ -337,6 +376,14 @@ export type MemoryIndexReportItem = {
   updatedAt: string;
   /** runtime the item was discovered by; absent = legacy node payload → API defaults "cursor" */
   runtime?: RuntimeKind;
+  /** 卡片标题（frontmatter name → 文件名回退；≤ MEMORY_TITLE_MAX，节点侧已脱敏） */
+  title?: string;
+  /** 一句话摘要（frontmatter description → 正文首个非标题行回退；≤ MEMORY_DESC_MAX，节点侧已脱敏截断） */
+  description?: string;
+  /** frontmatter metadata.type 原值（词表 user|feedback|project|reference；词表外原样上报，UI 归「未分类」——开放问题 6 裁决） */
+  memType?: string;
+  /** 文件内容 sha256 前 16 hex（跨节点/跨 runtime 精确归组键——开放问题 2 裁决：hash 优先，缺失回退归一化 title） */
+  contentHash?: string;
 };
 
 export type SessionIndexEntry = SessionIndexReportItem & {

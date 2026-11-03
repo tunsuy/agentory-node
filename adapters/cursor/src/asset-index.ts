@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { AdapterContext, AssetIndexResult } from "@agentoryhq/runtime-contract";
 import type { MemoryIndexReportItem, SessionIndexReportItem } from "@agentoryhq/shared";
+import { summarizeMemoryFile } from "./memory-summary.js";
 
 const TITLE_MAX = 80;
 
@@ -226,6 +227,8 @@ function collectRulesAndMemory(cwd: string, home: string): MemoryIndexReportItem
         pathLabel: path.relative(cwd, file).replace(/\\/g, "/") || name,
         projectPath: cwd,
         updatedAt: mtimeIso(file),
+        // memory-asset-cards：规则文件同构摘要（.md/.mdc frontmatter → 首行回退；节点侧 mask + 截断）
+        ...summarizeMemoryFile(file),
       });
     }
     if (memories.some((m) => m.kind === "rules")) break;
@@ -247,6 +250,8 @@ function collectRulesAndMemory(cwd: string, home: string): MemoryIndexReportItem
         pathLabel: path.relative(cwd, file).replace(/\\/g, "/") || name,
         projectPath: cwd,
         updatedAt: mtimeIso(file),
+        // memory-asset-cards：节点侧摘要（frontmatter → 首行回退；mask + 截断后才出机，全文永不出机）
+        ...summarizeMemoryFile(file),
       });
     }
     if (memories.some((m) => m.kind === "memory")) break;
