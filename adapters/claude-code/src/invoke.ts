@@ -1,13 +1,14 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, InvokeRequest, InvokeResult } from "@agentoryhq/runtime-contract";
+import { cwdForClaudeResume } from "./asset-index.js";
 
 /**
  * Headless 执行 runner（agent-messaging 切片 2）。
  *
- * 红线（ADR-005）：
- * - 只以 runtime 默认权限模型执行——本文件不得出现任何权限放宽 flag
- *   （`--dangerously-skip-permissions` / `--permission-mode` 类，AC-12 grep 钉死）。
+ * 权限（ADR-005 修订 2026-11-04）：claude-code invoke 默认注入
+ * `--dangerously-skip-permissions`（负责人直通——headless 无交互确认面，否则联网/写盘类工具不可用）。
+ * Console 派活区须常驻风险提示。其余纪律不变：
  * - 纯本地 spawn，零入站端口、零反连。
  * - 超时 kill 整个进程组（detached + kill(-pid)），不留僵尸。
  * - 输出按 maxOutputBytes 截断（字节口径），truncated 标记。
@@ -166,8 +167,8 @@ export function runHeadless(opts: HeadlessRunOpts): Promise<InvokeResult> {
 /**
  * Claude Code headless 执行。
  *
- * - 新开：`--session-id <uuid>` 自生成 → 回填 runtimeSessionId
- * - 续聊：`req.resumeSessionId` 有值 → `--resume <id>`，回填同一 id（同会话接续）
+ * - 新开：`--session-id <uuid>` 自生成 → 回填 runtimeSessionId；cwd = 请求/daemon cwd
+ * - 续聊：`req.resumeSessionId` 有值 → `--resume <id>`；cwd 优先取原会话 jsonl 内记录的目录
  *
  * 二进制解析：`CLAUDE_CODE_BIN` env 覆盖（测试/非标准安装），默认 PATH 中 `claude`。
  */
@@ -178,13 +179,18 @@ export async function invokeClaudeCode(
   const resume = typeof req.resumeSessionId === "string" ? req.resumeSessionId.trim() : "";
   const sessionId = resume || randomUUID();
   const bin = process.env.CLAUDE_CODE_BIN?.trim() || "claude";
+  const fallbackCwd = req.cwd || ctx.cwd;
+  const cwd = resume
+    ? cwdForClaudeResume(ctx.homeDir, sessionId, fallbackCwd)
+    : fallbackCwd;
+  // Headless 无 TTY 确认面：默认跳过权限提示，否则 WebSearch/写盘等工具会被拒。
   const args = resume
-    ? ["-p", req.prompt, "--resume", sessionId]
-    : ["-p", req.prompt, "--session-id", sessionId];
+    ? ["-p", req.prompt, "--resume", sessionId, "--dangerously-skip-permissions"]
+    : ["-p", req.prompt, "--session-id", sessionId, "--dangerously-skip-permissions"];
   return runHeadless({
     command: bin,
     args,
-    cwd: req.cwd || ctx.cwd,
+    cwd,
     timeoutMs: req.timeoutMs,
     maxOutputBytes: req.maxOutputBytes,
     sessionId,

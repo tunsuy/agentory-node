@@ -96,6 +96,56 @@ export function titleFromClaudeSessionJsonl(file: string): string {
   return "";
 }
 
+/**
+ * 按 session UUID 定位 ~/.claude/projects/<slug>/<uuid>.jsonl（续聊 cwd 解析用）。
+ * 只认顶层同名文件；找不到 → undefined。
+ */
+export function findClaudeSessionJsonl(
+  homeDir: string,
+  sessionId: string,
+): string | undefined {
+  const id = sessionId.trim().toLowerCase();
+  if (!id) return undefined;
+  const needle = `${id}.jsonl`;
+  const projectsRoot = path.join(homeDir, ".claude", "projects");
+  let slugs: string[] = [];
+  try {
+    slugs = fs.readdirSync(projectsRoot);
+  } catch {
+    return undefined;
+  }
+  for (const slug of slugs) {
+    const file = path.join(projectsRoot, slug, needle);
+    try {
+      if (fs.statSync(file).isFile()) return file;
+    } catch {
+      /* next */
+    }
+  }
+  return undefined;
+}
+
+/**
+ * 续聊工作目录：会话 jsonl 内 cwd 字段（且目录仍存在）；否则 fallback。
+ */
+export function cwdForClaudeResume(
+  homeDir: string,
+  sessionId: string,
+  fallback: string,
+): string {
+  const file = findClaudeSessionJsonl(homeDir, sessionId);
+  if (!file) return fallback;
+  const fromSession = projectPathFromClaudeSessionJsonl(file);
+  if (fromSession) {
+    try {
+      if (fs.statSync(fromSession).isDirectory()) return fromSession;
+    } catch {
+      /* fall through */
+    }
+  }
+  return fallback;
+}
+
 /** cwd field on rows is the authoritative projectPath (first row wins, 16KB-peek). */
 export function projectPathFromClaudeSessionJsonl(file: string): string | undefined {
   try {

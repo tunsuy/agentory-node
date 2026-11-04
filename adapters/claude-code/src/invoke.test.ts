@@ -110,7 +110,7 @@ test("runHeadless: spawn failure (ENOENT) → failed, exitCode null", async () =
   assert.equal(res.runtimeSessionId, undefined, "未 spawn 成功不得回填会话标识");
 });
 
-test("invokeClaudeCode: headless args + runtimeSessionId 回填 + 零权限放宽 flag (AC-12)", async () => {
+test("invokeClaudeCode: headless args + runtimeSessionId 回填 + skip-permissions (ADR-005 修订)", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agy-claude-i-"));
   const argsFile = path.join(root, "args.txt");
   const fakeBin = path.join(root, "fake-claude.sh");
@@ -145,32 +145,40 @@ test("invokeClaudeCode: headless args + runtimeSessionId 回填 + 零权限放�
       "总结最近一周构建失败原因",
       "--session-id",
       res.runtimeSessionId ?? "",
+      "--dangerously-skip-permissions",
     ]);
-    // AC-12 红线：参数面零权限放宽 flag
-    for (const arg of sentArgs) {
-      assert.ok(
-        !/dangerously|skip-permissions|permission-mode|yolo|bypass/i.test(arg),
-        `不得注入权限放宽 flag: ${arg}`,
-      );
-    }
   } finally {
     if (prev === undefined) delete process.env.CLAUDE_CODE_BIN;
     else process.env.CLAUDE_CODE_BIN = prev;
   }
 });
 
-test("invokeClaudeCode: resumeSessionId → --resume 接续 + 回填同一 session id", async () => {
+test("invokeClaudeCode: resumeSessionId → --resume 接续 + 回填同一 session id + 原会话 cwd", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agy-claude-r-"));
+  const proj = path.join(root, "old-proj");
+  fs.mkdirSync(proj);
+  const resumeId = "11111111-2222-3333-4444-555555555555";
+  const slugDir = path.join(root, ".claude", "projects", "old");
+  fs.mkdirSync(slugDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(slugDir, `${resumeId}.jsonl`),
+    `${JSON.stringify({ type: "system", cwd: proj })}\n`,
+  );
   const argsFile = path.join(root, "args.txt");
+  const cwdFile = path.join(root, "cwd.txt");
   const fakeBin = path.join(root, "fake-claude.sh");
   fs.writeFileSync(
     fakeBin,
-    ["#!/bin/sh", `printf '%s\\n' "$@" > ${JSON.stringify(argsFile)}`, "exit 0"].join("\n"),
+    [
+      "#!/bin/sh",
+      `pwd > ${JSON.stringify(cwdFile)}`,
+      `printf '%s\\n' "$@" > ${JSON.stringify(argsFile)}`,
+      "exit 0",
+    ].join("\n"),
     { mode: 0o755 },
   );
   const prev = process.env.CLAUDE_CODE_BIN;
   process.env.CLAUDE_CODE_BIN = fakeBin;
-  const resumeId = "11111111-2222-3333-4444-555555555555";
   try {
     const res = await invokeClaudeCode(
       { homeDir: root, cwd: root },
@@ -178,15 +186,26 @@ test("invokeClaudeCode: resumeSessionId → --resume 接续 + 回填同一 sessi
         prompt: "继续上次话题",
         timeoutMs: 10_000,
         maxOutputBytes: 4096,
-        cwd: root,
+        cwd: root, // daemon cwd；续聊应改用会话 cwd
         resumeSessionId: resumeId,
       },
     );
     assert.equal(res.outcome, "done");
     assert.equal(res.runtimeSessionId, resumeId);
     const sentArgs = fs.readFileSync(argsFile, "utf8").split("\n").filter(Boolean);
-    assert.deepEqual(sentArgs, ["-p", "继续上次话题", "--resume", resumeId]);
+    assert.deepEqual(sentArgs, [
+      "-p",
+      "继续上次话题",
+      "--resume",
+      resumeId,
+      "--dangerously-skip-permissions",
+    ]);
     assert.ok(!sentArgs.includes("--session-id"), "续聊不得再开 --session-id");
+    assert.equal(
+      fs.realpathSync(fs.readFileSync(cwdFile, "utf8").trim()),
+      fs.realpathSync(proj),
+      "续聊 spawn cwd = 原会话目录",
+    );
   } finally {
     if (prev === undefined) delete process.env.CLAUDE_CODE_BIN;
     else process.env.CLAUDE_CODE_BIN = prev;

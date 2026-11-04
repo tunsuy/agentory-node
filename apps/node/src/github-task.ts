@@ -1,7 +1,7 @@
 // GitHub 任务执行器（github-tasks 切片 3 · ADR-007 拉模型第七通道）。
 // 红线：纯出站零反连（只调控制面 API 与本地 git）；errorText 全脱敏（git 错误文本可能
-// 含 remote 凭据——AC-12 令牌零明文）；invoke 走 claude-code adapter 默认权限（ADR-005
-// 红线，adapter 内钉死不注入放宽 flag）；PR-only：push 目标恒为入队定型分支 task.branch
+// 含 remote 凭据——AC-12 令牌零明文）；invoke 走 claude-code adapter（ADR-005 修订：
+// 默认 `--dangerously-skip-permissions`）；PR-only：push 目标恒为入队定型分支 task.branch
 // （agentory/task-<id>），任何路径不直推默认分支（AC-8）。
 import { execFile } from "node:child_process";
 import type { InvokeResult } from "@agentoryhq/runtime-contract";

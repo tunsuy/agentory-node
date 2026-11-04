@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, InvokeRequest, InvokeResult } from "@agentoryhq/runtime-contract";
+import { cwdForCursorResume } from "./asset-index.js";
 
 /**
  * Cursor Agent CLI headless 执行（agent-messaging 二期 · Cursor invoke）。
  *
- * - 新开：`agent -p --output-format json <prompt>` → 回填 JSON.session_id
- * - 续聊：`--resume <id>` 接续，回填同一 id
+ * - 新开：`agent -p --output-format json <prompt>` → 回填 JSON.session_id；cwd = 请求/daemon cwd
+ * - 续聊：`--resume <id>`；cwd 优先取原会话项目目录
  *
  * 红线（ADR-005）：不注入 `--force` / `--yolo` / 任何权限放宽 flag。
  * 二进制：`CURSOR_AGENT_BIN` env 覆盖（测试），默认 PATH 中 `agent`。
@@ -184,6 +185,10 @@ export async function invokeCursor(
   const resume = typeof req.resumeSessionId === "string" ? req.resumeSessionId.trim() : "";
   const sessionId = resume || randomUUID();
   const bin = process.env.CURSOR_AGENT_BIN?.trim() || "agent";
+  const fallbackCwd = req.cwd || ctx.cwd;
+  const cwd = resume
+    ? cwdForCursorResume(ctx.homeDir, sessionId, fallbackCwd)
+    : fallbackCwd;
   // -p = print/non-interactive；--output-format json 便于回填 session_id + 答案文本。
   // 续聊带 --resume；新开不传 --resume（CLI 自建会话，我们从 JSON 读回 session_id，
   // 并以预生成 UUID 作 fallback——若 CLI 忽略我们的 id，以 JSON 为准）。
@@ -193,7 +198,7 @@ export async function invokeCursor(
   const result = await runHeadless({
     command: bin,
     args,
-    cwd: req.cwd || ctx.cwd,
+    cwd,
     timeoutMs: req.timeoutMs,
     maxOutputBytes: req.maxOutputBytes,
     sessionId: resume || undefined,

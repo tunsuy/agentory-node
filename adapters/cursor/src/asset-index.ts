@@ -96,6 +96,21 @@ function extractTextBlob(content: unknown): string {
   return "";
 }
 
+/** Prefer `<user_query>` body; strip image/system chrome so titles stay human-readable. */
+export function titleFromUserText(raw: string): string {
+  const q = raw.match(/<user_query>([\s\S]*?)<\/user_query>/i);
+  let text = (q ? q[1] : raw)
+    .replace(/<timestamp>[\s\S]*?<\/timestamp>/gi, " ")
+    .replace(/<\/?user_query>/gi, " ")
+    .replace(/<image_files>[\s\S]*?<\/image_files>/gi, " ")
+    .replace(/\[Image\]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Image-only / attachment-only user turns are not useful as session titles.
+  if (!text || /^(image_files|the following images were provided)\b/i.test(text)) return "";
+  return text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX)}…` : text;
+}
+
 /** Read only enough of the transcript to derive a short title — never return full body. */
 export function titleFromTranscriptJsonl(file: string): string {
   try {
@@ -121,13 +136,9 @@ export function titleFromTranscriptJsonl(file: string): string {
         else if (msg && typeof msg === "object") {
           text = extractTextBlob((msg as { content?: unknown }).content);
         }
-        text = text
-          .replace(/<timestamp>[\s\S]*?<\/timestamp>/gi, " ")
-          .replace(/<\/?user_query>/gi, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (!text) continue;
-        return text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX)}…` : text;
+        const title = titleFromUserText(text);
+        if (!title) continue;
+        return title;
       }
     } finally {
       fs.closeSync(fd);
@@ -136,6 +147,59 @@ export function titleFromTranscriptJsonl(file: string): string {
     /* ignore */
   }
   return "";
+}
+
+/**
+ * 续聊工作目录：优先 agent-transcripts/<id> 映射的项目路径；
+ * 再扫 ~/.cursor/sessions 与 cwd/.cursor/sessions 的 meta.projectPath；否则 fallback。
+ */
+export function cwdForCursorResume(
+  homeDir: string,
+  sessionId: string,
+  fallback: string,
+): string {
+  const id = sessionId.trim();
+  if (!id) return fallback;
+  const pathMap = buildCursorProjectPathMap(homeDir);
+  const projectsRoot = path.join(homeDir, ".cursor", "projects");
+  try {
+    for (const slug of fs.readdirSync(projectsRoot)) {
+      const file = path.join(projectsRoot, slug, "agent-transcripts", id, `${id}.jsonl`);
+      try {
+        if (!fs.statSync(file).isFile()) continue;
+      } catch {
+        continue;
+      }
+      const mapped = pathMap.get(slug);
+      if (mapped) {
+        try {
+          if (fs.statSync(mapped).isDirectory()) return mapped;
+        } catch {
+          /* fall through */
+        }
+      }
+    }
+  } catch {
+    /* no projects */
+  }
+  const sessionDirs = [
+    path.join(fallback, ".cursor", "sessions"),
+    path.join(homeDir, ".cursor", "sessions"),
+  ];
+  for (const dir of sessionDirs) {
+    const meta = path.join(dir, `${id}.meta.json`);
+    const raw = readJsonFile(meta);
+    if (!raw || typeof raw !== "object") continue;
+    const projectPath = (raw as { projectPath?: unknown }).projectPath;
+    if (typeof projectPath === "string" && projectPath.trim()) {
+      try {
+        if (fs.statSync(projectPath).isDirectory()) return projectPath;
+      } catch {
+        /* next */
+      }
+    }
+  }
+  return fallback;
 }
 
 function collectMetaSessions(cwd: string, home: string): SessionIndexReportItem[] {
