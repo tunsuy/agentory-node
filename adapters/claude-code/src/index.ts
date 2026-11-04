@@ -16,6 +16,8 @@ export {
   indexClaudeSessions,
   titleFromClaudeSessionJsonl,
   projectPathFromClaudeSessionJsonl,
+  findClaudeSessionJsonl,
+  cwdForClaudeResume,
 } from "./asset-index.js";
 export {
   SUMMARY_READ_MAX_BYTES,

@@ -10,6 +10,8 @@ import {
   captureTranscriptSnapshot,
   indexClaudeSessions,
   maskSecrets,
+  cwdForClaudeResume,
+  findClaudeSessionJsonl,
   projectPathFromClaudeSessionJsonl,
   summarizeMemoryFile,
   titleFromClaudeSessionJsonl,
@@ -154,6 +156,33 @@ test("indexClaudeSessions skips jsonl without any human row (not an indexable co
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("cwdForClaudeResume: 续聊优先会话 jsonl 内 cwd，目录不存在则 fallback", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "agy-cwd-resume-"));
+  const proj = path.join(home, "my-proj");
+  fs.mkdirSync(proj);
+  const sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const slugDir = path.join(home, ".claude", "projects", "Users-demo-my-proj");
+  fs.mkdirSync(slugDir, { recursive: true });
+  const jsonl = path.join(slugDir, `${sid}.jsonl`);
+  fs.writeFileSync(
+    jsonl,
+    `${JSON.stringify({ type: "system", cwd: proj })}\n${JSON.stringify({
+      type: "user",
+      origin: { kind: "human" },
+      message: { content: "hi" },
+    })}\n`,
+  );
+  assert.equal(findClaudeSessionJsonl(home, sid), jsonl);
+  assert.equal(cwdForClaudeResume(home, sid, "/fallback"), proj);
+  assert.equal(
+    cwdForClaudeResume(home, "00000000-0000-0000-0000-000000000000", "/fallback"),
+    "/fallback",
+  );
+  // 会话 cwd 已删 → fallback
+  fs.rmSync(proj, { recursive: true, force: true });
+  assert.equal(cwdForClaudeResume(home, sid, "/fallback"), "/fallback");
 });
 
 test("projectPathFromClaudeSessionJsonl reads cwd from first row", () => {

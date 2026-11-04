@@ -4,6 +4,41 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { indexCursorSessions } from "./index.js";
+import { titleFromTranscriptJsonl, titleFromUserText } from "./asset-index.js";
+
+test("titleFromUserText: 优先 user_query，跳过 Image/image_files 壳", () => {
+  assert.equal(
+    titleFromUserText(
+      "[Image]\n<image_files>\nThe following images were provided by the user and saved to disk for future use:\n1. /tmp/x.png\n</image_files>\n<user_query>\n我们来看下配置台这个页面\n</user_query>",
+    ),
+    "我们来看下配置台这个页面",
+  );
+  assert.equal(titleFromUserText("[Image]\n<image_files>\nok\n</image_files>"), "");
+});
+
+test("titleFromTranscriptJsonl: 首条 user 含 Image+user_query 时取人话标题", () => {
+  const home = makeHome();
+  try {
+    const file = path.join(home, "s.jsonl");
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        role: "user",
+        message: {
+          content: [
+            {
+              type: "text",
+              text: "[Image]\n<image_files>\npic\n</image_files>\n<user_query>\n去掉右边常用mcp\n</user_query>",
+            },
+          ],
+        },
+      }) + "\n",
+    );
+    assert.equal(titleFromTranscriptJsonl(file), "去掉右边常用mcp");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
 
 function makeHome(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "agy-cursor-idx-"));

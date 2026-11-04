@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-04
+
+### Added
+
+- `@agentoryhq/adapter-claude-code` / `@agentoryhq/adapter-cursor` — resume invoke resolves cwd from the original session (`cwdForClaudeResume` / `cwdForCursorResume`; jsonl / agent-transcripts / session meta).
+- OSS export includes `scripts/mock-cursor-agent.mjs` for headless Cursor invoke tests.
+
+### Changed
+
+- `@agentoryhq/adapter-claude-code` headless `invoke` **defaults to** `--dangerously-skip-permissions` (no TTY confirm surface; ADR-005 2026-11-04). Cursor invoke still uses the CLI default permission model (no `--force` / `--yolo`).
+- Workspace package version **0.1.6**.
+
 ## [0.1.5] - 2026-11-03
 
 ### Added

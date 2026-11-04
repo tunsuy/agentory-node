@@ -103,7 +103,11 @@ export type InvokeRequest = {
   timeoutMs: number;
   /** Cap on captured output; adapter truncates and sets `truncated`. */
   maxOutputBytes: number;
-  /** Project directory the runtime executes in (Agent 实例根). */
+  /**
+   * Project directory the runtime executes in.
+   * 新开：通常 = daemon process.cwd()。
+   * 续聊：adapter 应优先解析原会话记录的工作目录，找不到再回落本字段。
+   */
   cwd: string;
   /**
    * 续聊：接上一次 invoke 回填的 runtimeSessionId（claude-code → `--resume <id>`）。
@@ -148,8 +152,10 @@ export type RuntimeAdapter = {
    * Execute one headless task (agent-messaging). Async on purpose: executions
    * may run up to `timeoutMs` (~minutes) and MUST NOT block the daemon event
    * loop — heartbeats keep flowing while a task runs.
-   * Red line (ADR-005): run with the runtime's DEFAULT permission model;
-   * never inject permission-relaxing flags (`--dangerously-skip-permissions` 类).
+   * Permission (ADR-005 rev 2026-11-04): claude-code injects
+   * `--dangerously-skip-permissions` by default (headless has no TTY confirm).
+   * Other runtimes keep their own default unless an adapter ADR says otherwise.
+   * Console must surface a standing risk hint on the composer.
    */
   invoke?(ctx: AdapterContext, req: InvokeRequest): Promise<InvokeResult>;
 };

@@ -9,8 +9,10 @@ import { captureTranscriptSnapshot, transcriptFileForSourceKey } from "./transcr
 export { applyAlignPatch } from "./align.js";
 export {
   buildCursorProjectPathMap,
+  cwdForCursorResume,
   indexCursorSessions,
   titleFromTranscriptJsonl,
+  titleFromUserText,
 } from "./asset-index.js";
 export {
   SUMMARY_READ_MAX_BYTES,
