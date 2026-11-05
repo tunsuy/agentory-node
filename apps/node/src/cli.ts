@@ -2,6 +2,8 @@
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { PKG_VERSION, controlPlaneBaseUrl, jsonHealth } from "@agentoryhq/shared";
+import { detectCursorBridge, installCursorBridge, uninstallCursorBridge } from "@agentoryhq/adapter-cursor";
+import { resolveBridgeExtensionDir } from "./cursor-bridge.js";
 import { applyPendingAligns, fulfillPendingTranscripts, heartbeat, registerNode, reportAssetIndex, reportDiscovery } from "./client.js";
 import { discoverAssetIndex } from "./asset-index.js";
 import { discoverAgents } from "./discover.js";
@@ -65,7 +67,28 @@ export async function runCli(argv: string[]): Promise<number> {
   if (cmd === "daemon") {
     return runDaemon({ once: argv.includes("--once") });
   }
-  console.error("usage: agentory-node <version|ping|register|heartbeat|discover|asset-index|align|transcript|daemon [--once]>");
+  if (cmd === "cursor-bridge") {
+    const action = argv[3] ?? "status";
+    const extensionSourceDir = resolveBridgeExtensionDir();
+    const deps = extensionSourceDir ? { extensionSourceDir } : {};
+    if (action === "status") {
+      console.log(JSON.stringify(detectCursorBridge(deps), null, 2));
+      return 0;
+    }
+    if (action === "install") {
+      const result = installCursorBridge(deps);
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
+    if (action === "uninstall") {
+      const result = uninstallCursorBridge(deps);
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
+    console.error("usage: agentory-node cursor-bridge <status|install|uninstall>");
+    return 2;
+  }
+  console.error("usage: agentory-node <version|ping|register|heartbeat|discover|asset-index|align|transcript|daemon|cursor-bridge [status|install|uninstall] [--once]>");
   return 2;
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@agentoryhq/adapter-claude-code",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Agentory RuntimeAdapter for Claude Code",
   "license": "Apache-2.0",
   "type": "module",

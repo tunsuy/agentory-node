@@ -17,7 +17,9 @@ export type AdapterCapability =
   | "indexSessions"
   | "readTranscript"
   | "handoffExport"
-  | "invoke";
+  | "invoke"
+  /** 方案 A：接真实 IDE 会话（renderer 补丁 + 本地桥），后台提交并回传正文。 */
+  | "invokeIde";
 
 export type AdapterManifest = {
   /** Matches control-plane / shared RuntimeKind when known. */
@@ -158,6 +160,12 @@ export type RuntimeAdapter = {
    * Console must surface a standing risk hint on the composer.
    */
   invoke?(ctx: AdapterContext, req: InvokeRequest): Promise<InvokeResult>;
+  /**
+   * 方案 A：接「真实 IDE 会话」（renderer 补丁 + 本地桥）。与 `invoke` 语义同构
+   * （prompt → 执行 → 结果），但执行发生在 IDE 进程内、UI 跟着走，正文经补丁
+   * 后台轮询生成完成后回传。不可用时诚实返回 failed（由调用方决定是否回落）。
+   */
+  invokeIde?(ctx: AdapterContext, req: InvokeRequest): Promise<InvokeResult>;
 };
 
 export function hasCapability(

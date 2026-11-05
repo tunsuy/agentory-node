@@ -1,0 +1,28 @@
+{
+  "name": "cursor-bridge",
+  "displayName": "Agentory Cursor Bridge (spike)",
+  "description": "Spike: expose a local HTTP bridge that drives Cursor's internal composer via commands.",
+  "publisher": "agentory",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.23.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentoryBridge.showLog",
+        "title": "Agentory Bridge: 显示日志"
+      }
+    ]
+  }
+}

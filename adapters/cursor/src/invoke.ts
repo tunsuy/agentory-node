@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, InvokeRequest, InvokeResult } from "@agentoryhq/runtime-contract";
 import { cwdForCursorResume } from "./asset-index.js";
+import { pickLiveBridge, submitViaBridge } from "./ide-bridge.js";
 
 /**
  * Cursor Agent CLI headless 执行（agent-messaging 二期 · Cursor invoke）。
@@ -13,8 +14,7 @@ import { cwdForCursorResume } from "./asset-index.js";
  * 二进制：`CURSOR_AGENT_BIN` env 覆盖（测试），默认 PATH 中 `agent`。
  */
 
-export type HeadlessRunOpts = {
-  command: string;
+export type HeadlessRunOpts = {  command: string;
   args: string[];
   cwd: string;
   timeoutMs: number;
@@ -41,6 +41,11 @@ function parseCursorJsonOutput(raw: string): { text: string; sessionId?: string 
   } catch {
     return { text: raw };
   }
+}
+
+export function isIdeBridgeEnabled(): boolean {
+  const v = process.env.AGENTORY_CURSOR_IDE_BRIDGE?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
 }
 
 export function runHeadless(opts: HeadlessRunOpts): Promise<InvokeResult> {
@@ -178,11 +183,72 @@ export function runHeadless(opts: HeadlessRunOpts): Promise<InvokeResult> {
   });
 }
 
+function ideBridgeFailure(message: string): InvokeResult {
+  return {
+    outcome: "failed",
+    output: "",
+    truncated: false,
+    exitCode: null,
+    durationMs: 0,
+    errorText: message,
+  };
+}
+
+export async function invokeCursorIde(
+  ctx: AdapterContext,
+  req: InvokeRequest,
+): Promise<InvokeResult> {
+  const portEnv = process.env.AGENTORY_CURSOR_BRIDGE_PORT?.trim();
+  const port = portEnv ? Number(portEnv) : undefined;
+  const bridge = await pickLiveBridge({
+    ...(port && Number.isInteger(port) ? { port } : {}),
+    homeDir: ctx.homeDir,
+  });
+  if (!bridge) return ideBridgeFailure("Cursor IDE bridge 未发现可用窗口（请确认已打补丁并重载窗口）");
+
+  const resume = typeof req.resumeSessionId === "string" ? req.resumeSessionId.trim() : "";
+  const submitted = await submitViaBridge(bridge.port, req.prompt, {
+    ...(resume ? { composerId: resume } : {}),
+    timeoutMs: req.timeoutMs,
+  });
+  if (!submitted.ok) return ideBridgeFailure(submitted.errorText ?? "Cursor IDE bridge 提交失败");
+
+  let output = submitted.output ?? "";
+  let truncated = false;
+  if (Buffer.byteLength(output, "utf8") > req.maxOutputBytes) {
+    output = Buffer.from(output, "utf8").subarray(0, req.maxOutputBytes).toString("utf8");
+    truncated = true;
+  }
+  return {
+    outcome: submitted.timedOut ? "timeout" : "done",
+    output,
+    truncated,
+    exitCode: submitted.timedOut ? null : 0,
+    durationMs: submitted.durationMs,
+    ...(submitted.composerId
+      ? { runtimeSessionId: submitted.composerId }
+      : resume
+        ? { runtimeSessionId: resume }
+        : {}),
+    ...(submitted.timedOut ? { errorText: "IDE 生成未在预算内结束（已回传当前文本）" } : {}),
+  };
+}
+
 export async function invokeCursor(
   ctx: AdapterContext,
   req: InvokeRequest,
 ): Promise<InvokeResult> {
   const resume = typeof req.resumeSessionId === "string" ? req.resumeSessionId.trim() : "";
+
+  /**
+   * `invoke` 默认保持 Cursor Agent CLI 兼容路径；设置 AGENTORY_CURSOR_IDE_BRIDGE=1
+   * 时才优先尝试真实 IDE 桥，桥不可用则回落 CLI。
+   */  if (isIdeBridgeEnabled()) {
+    const ide = await invokeCursorIde(ctx, req);
+    if (ide.outcome === "done" || ide.outcome === "timeout") return ide;
+    // 桥失败（未打补丁/未重载/端口无响应）→ 回落 CLI，可用性优先。
+  }
+
   const sessionId = resume || randomUUID();
   const bin = process.env.CURSOR_AGENT_BIN?.trim() || "agent";
   const fallbackCwd = req.cwd || ctx.cwd;
