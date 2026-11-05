@@ -3,7 +3,7 @@ import { ADAPTER_API_VERSION } from "@agentoryhq/runtime-contract";
 import { applyAlignPatch } from "./align.js";
 import { indexCursorSessions } from "./asset-index.js";
 import { detectCursor, discoverCursorConfig } from "./discover.js";
-import { invokeCursor } from "./invoke.js";
+import { invokeCursor, invokeCursorIde } from "./invoke.js";
 import { captureTranscriptSnapshot, transcriptFileForSourceKey } from "./transcript.js";
 
 export { applyAlignPatch } from "./align.js";
@@ -21,7 +21,35 @@ export {
   summarizeMemoryFile,
 } from "./memory-summary.js";
 export { detectCursor, discoverCursorConfig } from "./discover.js";
-export { invokeCursor, runHeadless } from "./invoke.js";
+export {
+  bridgeHealth,
+  bridgeRuntimeDir,
+  discoverBridges,
+  pickLiveBridge,
+  submitViaBridge,
+} from "./ide-bridge.js";
+export type { BridgeEndpoint, BridgeSubmitOpts, BridgeSubmitResult } from "./ide-bridge.js";
+export { invokeCursor, invokeCursorIde, isIdeBridgeEnabled, runHeadless } from "./invoke.js";
+export {
+  CURSOR_BRIDGE_EXTENSION_ID,
+  MIN_CURSOR_VERSION,
+  bundleHasOurPatch,
+  detectCursorBridge,
+  installCursorBridge,
+  uninstallCursorBridge,
+} from "./bridge-installer.js";
+export type { BridgeInstallerDeps, CursorBridgeStatus, InstallResult } from "./bridge-installer.js";
+export {
+  DEFAULT_DESKTOP_BUNDLE,
+  SUBMIT_SENTINEL,
+  applyBundlePatch,
+  isBundlePatched,
+  locateAnchor,
+  readBundle,
+  revertBundlePatch,
+  statusBundlePatch,
+} from "./patch-bundle.js";
+export type { BundlePatchResult } from "./patch-bundle.js";
 export {
   TRANSCRIPT_MESSAGE_MAX_CHARS,
   TRANSCRIPT_WINDOW_MESSAGES,
@@ -42,6 +70,7 @@ export const cursorAdapter: RuntimeAdapter = {
       "indexSessions",
       "readTranscript",
       "invoke",
+      "invokeIde",
     ],
   },
   detect: detectCursor,
@@ -51,4 +80,5 @@ export const cursorAdapter: RuntimeAdapter = {
   transcriptFileForSourceKey,
   captureTranscriptSnapshot,
   invoke: invokeCursor,
+  invokeIde: invokeCursorIde,
 };

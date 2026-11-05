@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { controlPlaneBaseUrl } from "@agentoryhq/shared";
 import { applyPendingAligns, fulfillPendingGithubTasks, fulfillPendingMessages, fulfillPendingSkillInstalls, fulfillPendingTranscripts, heartbeat, loadState, reportAssetIndex, reportDiscovery } from "./client.js";
 import { discoverAssetIndex } from "./asset-index.js";
+import { autoInstallCursorBridge } from "./cursor-bridge.js";
 
 /**
  * Resident daemon: periodic heartbeat (+ align pull), asset-index report
@@ -37,7 +38,7 @@ const DEFAULTS: DaemonIntervals = {
   discoverSec: 3600,
 };
 
-type Channel = "heartbeat" | "align" | "asset-index" | "discover" | "transcript" | "message" | "github-task" | "skill-install";
+type Channel = "heartbeat" | "align" | "asset-index" | "discover" | "transcript" | "message" | "github-task" | "skill-install" | "cursor-bridge";
 
 function logLine(stream: (s: string) => void, channel: string, status: string, detail?: Record<string, unknown>) {
   stream(JSON.stringify({ ts: new Date().toISOString(), channel, status, ...detail }));
@@ -163,6 +164,9 @@ export async function runFullRound(): Promise<number> {
   await runChannel("skill-install", fulfillPendingSkillInstalls, (c) => {
     if (c !== 0) code = c;
   });
+  await runChannel("cursor-bridge", autoInstallCursorBridge, (c) => {
+    if (c !== 0) code = c;
+  });
   await runChannel("discover", reportDiscovery, (c) => {
     if (c !== 0) code = c;
   });
@@ -250,6 +254,7 @@ export async function runDaemon(opts: DaemonOpts = {}): Promise<number> {
       await runChannel("message", fulfillPendingMessages);
       await runChannel("github-task", fulfillPendingGithubTasks);
       await runChannel("skill-install", fulfillPendingSkillInstalls);
+      await runChannel("cursor-bridge", autoInstallCursorBridge);
       nextDue.heartbeat += intervals.heartbeatSec * 1000;
     }
     if (now >= nextDue.index) {

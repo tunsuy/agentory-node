@@ -19,6 +19,7 @@ const CAPABILITY_METHODS: Record<AdapterCapability, readonly string[]> = {
   /** 控制面侧导出（handoff snapshot），无 adapter 方法。 */
   handoffExport: [],
   invoke: ["invoke"],
+  invokeIde: ["invokeIde"],
 };
 
 const METHOD_CAPABILITY: Record<string, AdapterCapability> = {
@@ -29,6 +30,7 @@ const METHOD_CAPABILITY: Record<string, AdapterCapability> = {
   transcriptFileForSourceKey: "readTranscript",
   captureTranscriptSnapshot: "readTranscript",
   invoke: "invoke",
+  invokeIde: "invokeIde",
 };
 
 test("builtin adapters: manifest capabilities match implemented methods", () => {
@@ -79,6 +81,18 @@ test("installSkills capability 诚实边界（skillhub-integration）：claude-c
   assert.ok(cursor);
   assert.ok(!hasCapability(cursor.manifest, "installSkills"), "cursor 一期维持名单 tracking，不得声明 installSkills");
   assert.equal(cursor.installSkills, undefined);
+});
+
+test("invokeIde capability 诚实边界（方案 A）：cursor 声明并实现；claude-code 不声明", () => {
+  const cursor = adapterForRuntime("cursor");
+  assert.ok(cursor);
+  assert.ok(hasCapability(cursor.manifest, "invokeIde"), "cursor 有真实 IDE 会话桥，须声明 invokeIde");
+  assert.equal(typeof cursor.invokeIde, "function");
+
+  const claude = adapterForRuntime("claude-code");
+  assert.ok(claude);
+  assert.ok(!hasCapability(claude.manifest, "invokeIde"), "claude-code 无 IDE 桥，不得声明 invokeIde");
+  assert.equal(claude.invokeIde, undefined);
 });
 
 test("adapterForRuntime resolves builtins; unknown runtime returns undefined", () => {
