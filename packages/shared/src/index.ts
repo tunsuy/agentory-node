@@ -1,4 +1,4 @@
-export const PKG_VERSION = "0.1.8";
+export const PKG_VERSION = "0.1.9";
 
 export const DEFAULT_API_PORT = 8787;
 export const DEFAULT_CONSOLE_PORT = 5173;
@@ -344,7 +344,30 @@ export type NodeRecord = {
   createdAt: string;
   /** ISO timestamp when Owner revoked; null = active */
   revokedAt: string | null;
+  /** 最近一次随心跳上报的 Cursor 桥状态；缺省 = 老节点未上报或非 macOS。 */
+  cursorBridge?: CursorBridgeReport | null;
 };
+
+/** Cursor IDE 桥接状态（节点侧检测、随心跳上报；控制面只读展示，绝不回写节点）。 */
+export type CursorBridgeReport = {
+  /** Cursor 是否安装（false 时其余能力字段无意义）。 */
+  installed: boolean;
+  /** 检测到的 Cursor 版本（如 3.11.19）。 */
+  cursorVersion?: string;
+  /** 桥扩展是否已装入 Cursor。 */
+  bridgeInstalled: boolean;
+  /** workbench bundle 是否已打补丁。 */
+  bundlePatched: boolean;
+  /** 当前 Cursor 版本是否可安全打补丁（版本漂移 → false）。 */
+  compatible: boolean;
+  /** 打补丁/装扩展后是否需要重启 Cursor 才能生效。 */
+  needsReload?: boolean;
+  /** 不满足条件或异常的原因（节点侧脱敏，仅状态，无正文）。 */
+  reasons?: string[];
+  /** 节点侧检测时间（ISO）。 */
+  checkedAt: string;
+};
+
 
 /** Read-only session metadata (no message body), any indexed runtime. */
 export type SessionIndexReportItem = {
