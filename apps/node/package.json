@@ -1,11 +1,11 @@
 {
   "name": "@agentoryhq/node",
-  "version": "0.1.7",
-  "description": "Agentory Node CLI — register, discover, align, daemon",
+  "version": "0.1.8",
+  "description": "Agentory Node CLI \u2014 register, discover, align, daemon",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
-    "agentory-node": "dist/cli.js"
+    "agentory-node": "./dist/cli.js"
   },
   "files": [
     "dist",

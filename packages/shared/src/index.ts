@@ -1,4 +1,4 @@
-export const PKG_VERSION = "0.1.5";
+export const PKG_VERSION = "0.1.8";
 
 export const DEFAULT_API_PORT = 8787;
 export const DEFAULT_CONSOLE_PORT = 5173;

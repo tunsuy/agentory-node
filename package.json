@@ -1,7 +1,7 @@
 {
   "name": "agentory-node-workspace",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Agentory Node \u2014 open-source Host + RuntimeAdapter contract + adapters",
   "license": "Apache-2.0",
   "workspaces": [
