@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AlignPlan, PendingSkillInstall, SkillInstallReport } from "@agentoryhq/shared";
+import type { AlignPlan, CursorBridgeReport, PendingSkillInstall, SkillInstallReport } from "@agentoryhq/shared";
 import { controlPlaneBaseUrl } from "@agentoryhq/shared";
 import { applyAlignPatch } from "./align.js";
 import { discoverAssetIndex } from "./asset-index.js";
@@ -112,7 +112,7 @@ export async function registerNode(rootToken: string, name: string): Promise<num
   return 0;
 }
 
-export async function heartbeat(): Promise<number> {
+export async function heartbeat(extra?: { cursorBridge?: CursorBridgeReport }): Promise<number> {
   const st = loadState();
   if (!st) {
     console.error("not registered; run: agentory-node register --token <root>");
@@ -120,6 +120,7 @@ export async function heartbeat(): Promise<number> {
   }
   const { status, body } = await api("POST", `/v1/nodes/${st.nodeId}/heartbeat`, {
     token: st.nodeToken,
+    ...(extra?.cursorBridge ? { body: { cursorBridge: extra.cursorBridge } } : {}),
   });
   console.log(status, JSON.stringify(body));
   return status === 200 ? 0 : 1;

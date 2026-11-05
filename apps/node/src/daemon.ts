@@ -6,6 +6,7 @@ import { controlPlaneBaseUrl } from "@agentoryhq/shared";
 import { applyPendingAligns, fulfillPendingGithubTasks, fulfillPendingMessages, fulfillPendingSkillInstalls, fulfillPendingTranscripts, heartbeat, loadState, reportAssetIndex, reportDiscovery } from "./client.js";
 import { discoverAssetIndex } from "./asset-index.js";
 import { autoInstallCursorBridge } from "./cursor-bridge.js";
+import { detectCursorBridge, type CursorBridgeStatus } from "@agentoryhq/adapter-cursor";
 
 /**
  * Resident daemon: periodic heartbeat (+ align pull), asset-index report
@@ -116,7 +117,31 @@ export async function reportAssetIndexIfChanged(): Promise<number> {
   return code;
 }
 
+function cursorBridgeReport(status: CursorBridgeStatus) {
+  return {
+    installed: Boolean(status.cursorApp),
+    cursorVersion: status.cursorVersion,
+    bridgeInstalled: status.extensionInstalled,
+    bundlePatched: status.bundlePatched,
+    compatible: status.compatible,
+    needsReload: Boolean(status.extensionInstalled !== status.bundlePatched),
+    reasons: status.reasons,
+    checkedAt: new Date().toISOString(),
+  } as const;
+}
+
 let heartbeatFailures = 0;
+
+async function heartbeatWithCursorStatus(): Promise<number> {
+  let cursorBridge;
+  try {
+    cursorBridge = cursorBridgeReport(detectCursorBridge({}));
+  } catch {
+    cursorBridge = undefined;
+  }
+  return heartbeat(cursorBridge ? { cursorBridge } : undefined);
+}
+
 
 async function runChannel(
   name: Channel,
@@ -143,7 +168,7 @@ async function runChannel(
 /** One full round: all channels (--once 与首轮同语义，AC-1）。失败通道 → 非 0。 */
 export async function runFullRound(): Promise<number> {
   let code = 0;
-  await runChannel("heartbeat", heartbeat, (c) => {
+  await runChannel("heartbeat", heartbeatWithCursorStatus, (c) => {
     if (c !== 0) code = c;
   });
   await runChannel("align", applyPendingAligns, (c) => {
