@@ -1,4 +1,4 @@
-export const PKG_VERSION = "0.1.15";
+export const PKG_VERSION = "0.1.16";
 
 export const DEFAULT_API_PORT = 8787;
 export const DEFAULT_CONSOLE_PORT = 5173;
@@ -65,6 +65,8 @@ export type DesiredSkillEntry = {
   slug?: string;
   /** 选装时固定的版本（semver）；升级 = 用户显式改版本重装，不自动跟随 latest */
   version?: string;
+  /** SkillHub 选装/回填的展示描述（纯展示面，不进节点对齐契约；存量条目由 Console 异步回填） */
+  description?: string;
 };
 
 /** 读侧宽容类型：存量 `string[]` 与结构化条目并存（AC-8）。 */
@@ -77,7 +79,7 @@ export function desiredSkillName(s: DesiredSkill): string {
 /**
  * 读侧归一（AC-8 向后兼容单点）：string → {name}；对象条目做宽容清洗
  * （name 非空字符串才保留；source 只认 "skillhub"，其他值丢弃降级为无来源；
- * slug/version 非字符串丢弃）；按 name 去重（先到先得）。脏条目静默滤除，
+ * slug/version/description 非字符串丢弃）；按 name 去重（先到先得）。脏条目静默滤除，
  * 与 discovery parseDiscoveredAgents 同口径。
  */
 export function normalizeDesiredSkills(raw: unknown): DesiredSkillEntry[] {
@@ -98,6 +100,8 @@ export function normalizeDesiredSkills(raw: unknown): DesiredSkillEntry[] {
           entry.source = "skillhub";
           if (typeof o.slug === "string" && o.slug.trim()) entry.slug = o.slug.trim();
           if (typeof o.version === "string" && o.version.trim()) entry.version = o.version.trim();
+          if (typeof o.description === "string" && o.description.trim())
+            entry.description = o.description.trim();
         }
       }
     }

@@ -1,6 +1,6 @@
 {
   "name": "@agentoryhq/adapter-cursor",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Agentory RuntimeAdapter for Cursor",
   "license": "Apache-2.0",
   "type": "module",
