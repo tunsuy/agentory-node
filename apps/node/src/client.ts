@@ -17,6 +17,13 @@ export type NodeState = {
   nodeId: string;
   nodeToken: string;
   controlPlaneBaseUrl: string;
+  /** 注册时的节点名（自愈重注册沿用，缺省回退 "local"）。 */
+  name?: string;
+  /**
+   * 节点根令牌：控制面（demo 档 memory）重启清空节点记录后，heartbeat 401/404
+   * 时用它自愈重注册。文件 0600 仅属主可读；不写日志、不上报。
+   */
+  rootToken?: string;
 };
 
 function statePath(): string {
@@ -107,9 +114,18 @@ export async function registerNode(rootToken: string, name: string): Promise<num
     nodeId: node.id,
     nodeToken,
     controlPlaneBaseUrl: controlPlaneBaseUrl(),
+    name,
+    rootToken,
   });
   console.log(JSON.stringify({ nodeId: node.id, workspaceId: node.workspaceId }, null, 2));
   return 0;
+}
+
+async function postHeartbeat(st: NodeState, extra?: { cursorBridge?: CursorBridgeReport }) {
+  return api("POST", `/v1/nodes/${st.nodeId}/heartbeat`, {
+    token: st.nodeToken,
+    ...(extra?.cursorBridge ? { body: { cursorBridge: extra.cursorBridge } } : {}),
+  });
 }
 
 export async function heartbeat(extra?: { cursorBridge?: CursorBridgeReport }): Promise<number> {
@@ -118,10 +134,18 @@ export async function heartbeat(extra?: { cursorBridge?: CursorBridgeReport }): 
     console.error("not registered; run: agentory-node register --token <root>");
     return 2;
   }
-  const { status, body } = await api("POST", `/v1/nodes/${st.nodeId}/heartbeat`, {
-    token: st.nodeToken,
-    ...(extra?.cursorBridge ? { body: { cursorBridge: extra.cursorBridge } } : {}),
-  });
+  let { status, body } = await postHeartbeat(st, extra);
+  // 自愈重注册：401/404 = 控制面不认识本节点（典型：demo 档 memory store 重启
+  // 清空全部节点记录）。state 里有根令牌就重注册一次再重试；重注册后 nodeId/
+  // nodeToken 全新（daemon 后续通道各自 loadState，自动用新凭据）。
+  // 403（node_revoked，Owner 吊销）不自愈——kill switch 不可绕过。
+  // 存量 state 无 rootToken 或根令牌也失效（PG 档登录轮换）→ 照旧报错。
+  if ((status === 401 || status === 404) && st.rootToken) {
+    console.error(`heartbeat ${status}: control plane forgot this node; re-registering with stored root token`);
+    const code = await registerNode(st.rootToken, st.name ?? "local");
+    const fresh = code === 0 ? loadState() : undefined;
+    if (fresh) ({ status, body } = await postHeartbeat(fresh, extra));
+  }
   console.log(status, JSON.stringify(body));
   return status === 200 ? 0 : 1;
 }

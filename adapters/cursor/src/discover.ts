@@ -32,11 +32,27 @@ function mcpFromCursorConfig(raw: unknown): LiveMcpBinding[] {
   return out;
 }
 
+/**
+ * Dirent.isDirectory()/isFile() 对 symlink 恒 false——软链技能（目录或 .md 文件，
+ * cc-switch 等管理器的落盘形态）会被静默滤掉（claude-code discover 同款判例）。
+ * symlink 一律 statSync 解引用再判；断链 → 跳过。
+ */
+function isSkillEntry(dir: string, d: fs.Dirent): boolean {
+  if (d.isDirectory() || (d.isFile() && d.name.endsWith(".md"))) return true;
+  if (!d.isSymbolicLink()) return false;
+  try {
+    const st = fs.statSync(path.join(dir, d.name));
+    return st.isDirectory() || (st.isFile() && d.name.endsWith(".md"));
+  } catch {
+    return false;
+  }
+}
+
 function skillsFromDir(dir: string): string[] {
   try {
     return fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() || (d.isFile() && d.name.endsWith(".md")))
+      .filter((d) => isSkillEntry(dir, d))
       .map((d) => d.name.replace(/\.md$/, ""));
   } catch {
     return [];
