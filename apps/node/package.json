@@ -1,7 +1,7 @@
 {
   "name": "@agentoryhq/node",
-  "version": "0.1.9",
-  "description": "Agentory Node CLI \u2014 register, discover, align, daemon",
+  "version": "0.1.15",
+  "description": "Agentory Node CLI — register, discover, align, daemon",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {

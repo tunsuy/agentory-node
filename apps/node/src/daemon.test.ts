@@ -139,3 +139,33 @@ test("AC-5: SIGNAL mid-run → graceful stop, exit 0", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("常驻循环 sleep 被 await（回归：await ms>0 优先级陷阱 → 忙等自旋 OOM）", async () => {
+  const dir = tmpStateDir();
+  const file = writeState(dir);
+  const prevState = process.env.AGENTORY_NODE_STATE;
+  process.env.AGENTORY_NODE_STATE = file;
+  let sleepCalls = 0;
+  let onSignal: ((sig: NodeJS.Signals) => void) | undefined;
+  const stopper = setTimeout(() => onSignal?.("SIGTERM"), 400);
+  try {
+    await runDaemon({
+      intervals: { heartbeatSec: 5, indexSec: 60, discoverSec: 360 },
+      clock: () => Date.now(),
+      // 短睡上限：未到期时提前醒来重查（保持真 await 语义），忙等回归仍可计数
+      sleep: (ms: number) => {
+        sleepCalls += 1;
+        return new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, 150)));
+      },
+      registerSignal: (cb) => {
+        onSignal = cb;
+      },
+    });
+  } finally {
+    clearTimeout(stopper);
+    if (prevState === undefined) delete process.env.AGENTORY_NODE_STATE;
+    else process.env.AGENTORY_NODE_STATE = prevState;
+  }
+  // 正确实现 ≈ jitter 1 次 + 停靠期 1-3 次提前醒来；忙等实现 400ms 窗口内数千次
+  assert.ok(sleepCalls < 50, `sleep called ${sleepCalls} times in ~400ms — busy spin`);
+});

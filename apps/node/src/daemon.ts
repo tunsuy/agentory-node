@@ -292,10 +292,13 @@ export async function runDaemon(opts: DaemonOpts = {}): Promise<number> {
     }
 
     // 睡到最近一个到期点（信号会被 stopping 吸收，醒来即退）。
+    // 判例：`await ms > 0 ? sleep(ms) : sleep(0)` 会解析成 `(await ms) > 0 ? …`
+    // ——sleep 未被 await → 忙等自旋（99% CPU、定时器堆积、~20s OOM 崩溃循环）。
+    // 括号必须包住整个三元（daemon-sleep-await-precedence）。
     const wakeAt = Math.min(nextDue.heartbeat, nextDue.index, nextDue.discover);
     const ms = Math.max(0, wakeAt - clock());
     try {
-      await ms > 0 ? sleep(ms) : sleep(0);
+      await (ms > 0 ? sleep(ms) : sleep(0));
     } catch {
       /* sleep aborted */
     }

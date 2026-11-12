@@ -33,6 +33,29 @@ test("discoverClaudeCodeConfig reads project .mcp.json and skills", () => {
   assert.ok(agent.skills.includes("brief"));
 });
 
+test("discoverClaudeCodeConfig follows symlinked skill dirs (cc-switch pattern)", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agy-claude-slink-"));
+  const home = path.join(root, "home");
+  const cwd = path.join(root, "proj");
+  const store = path.join(root, "store"); // 模拟 ~/.cc-switch/skills 外部真身
+  fs.mkdirSync(path.join(home, ".claude", "skills"), { recursive: true });
+  fs.mkdirSync(cwd, { recursive: true });
+  fs.mkdirSync(path.join(store, "cloud-servers"), { recursive: true });
+  fs.writeFileSync(path.join(store, "cloud-servers", "SKILL.md"), "# x\n");
+  fs.symlinkSync(
+    path.join(store, "cloud-servers"),
+    path.join(home, ".claude", "skills", "cloud-servers"),
+    "dir",
+  );
+  // 断链不炸、不上报
+  fs.symlinkSync(path.join(store, "gone"), path.join(home, ".claude", "skills", "dead"), "dir");
+
+  const agent = discoverClaudeCodeConfig({ homeDir: home, cwd });
+  assert.ok(agent);
+  assert.ok(agent.skills.includes("cloud-servers"), "symlinked skill dir must be discovered");
+  assert.ok(!agent.skills.includes("dead"), "broken symlink must be skipped");
+});
+
 test("applyAlignPatch Claude refuses unconfirmed; writes .mcp.json on confirm", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agy-claude-a-"));
   fs.writeFileSync(

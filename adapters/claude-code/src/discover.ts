@@ -34,11 +34,27 @@ export function mcpFromClaudeConfig(raw: unknown): LiveMcpBinding[] {
   return out;
 }
 
+/**
+ * Dirent.isDirectory() 对 symlink 恒 false——软链技能目录（cc-switch 等管理器
+ * 的落盘形态）会被静默滤掉（判例：~/.claude/skills/cloud-servers -> …/.cc-switch/…
+ * 永不上报，而 Claude Code 本体跟随软链照常用）。symlink 一律 statSync 解引用
+ * 再判目录；断链 → 跳过。
+ */
+function isSkillDir(dir: string, d: fs.Dirent): boolean {
+  if (d.isDirectory()) return true;
+  if (!d.isSymbolicLink()) return false;
+  try {
+    return fs.statSync(path.join(dir, d.name)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function skillsFromSkillsRoot(dir: string): string[] {
   try {
     return fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
+      .filter((d) => isSkillDir(dir, d))
       .map((d) => d.name);
   } catch {
     return [];
